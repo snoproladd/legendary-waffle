@@ -31,16 +31,19 @@ async function loadKickboxKey() {
 
 // ✅ Initialize Kickbox client (singleton)
 
+
 let kickboxClient;
 
 async function initKickbox() {
   if (!kickboxClient) {
     const kickboxModule = await import('kickbox');
-    kickboxClient = kickboxModule.default.client(process.env.KICKBOX_API_KEY).kickbox();
+    const client = kickboxModule.client(process.env.KICKBOX_API_KEY);
+    kickboxClient = client.kickbox();
     console.log("✅ Kickbox client initialized.");
   }
   return kickboxClient;
 }
+
 
 
 // ✅ Verify email using Kickbox with async/await
