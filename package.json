@@ -13,7 +13,7 @@
     "@azure/keyvault-secrets": "^4.7.0",
     "body-parser": "^1.20.2",
     "build": "^0.1.4",
-    "docker": "^1.0.0",
+    "docker": "^0.2.14",
     "ejs": "^3.1.10",
     "express": "^4.18.2",
     "helmet": "^7.0.0",
