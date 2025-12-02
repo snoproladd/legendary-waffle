@@ -13,8 +13,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Run build step (if you have one, e.g., TypeScript or React)
-RUN npm run build
+# No build step needed for Express/EJS, but keep placeholder
+RUN npm run build || echo "No build step"
 
 # ---- Stage 2: Production ----
 FROM node:18-alpine AS production
@@ -24,18 +24,21 @@ WORKDIR /app
 # Copy only necessary files from build stage
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-# If no dist folder, copy your app files:
-# COPY --from=build /app/index.js ./index.js
-# COPY --from=build /app/views ./views
+COPY --from=build /app/index.js ./index.js
+COPY --from=build /app/views ./views
+COPY --from=build /app/public ./public
+COPY --from=build /app/types ./types
 
+# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=80
 
+# Expose port
 EXPOSE 80
 
-# Health check
+# Health check (optional)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
 
+# Start the app
 CMD ["npm", "start"]

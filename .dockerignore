@@ -1,37 +1,28 @@
 
-# Node modules (will be installed in build stage)
 node_modules
 npm-debug.log
 yarn-error.log
 
-# Environment files
 .env
 .env.*
 
-# Logs
 logs
 *.log
 
-# OS-specific files
 .DS_Store
 Thumbs.db
 
-# Git and CI/CD
 .git
 .gitignore
 .github/
 
-# IDE settings
 .vscode/
 .idea/
 
-# Build artifacts (handled in build stage)
 dist/
 build/
 
-# Docker-related files (optional)
 docker-compose.override.yml
 
-# Temporary files
 *.swp
 *.tmp
