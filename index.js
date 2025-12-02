@@ -1,4 +1,3 @@
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import path from 'path';
@@ -7,93 +6,74 @@ import { dirname } from 'path';
 import helmet from 'helmet';
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
-import crypto from "crypto";
 
-// ✅ Azure Key Vault setup
 const vaultName = 'ApiStorage'; // Replace with your Key Vault name
 const vaultUrl = `https://${vaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(vaultUrl, credential);
 const secretName = 'kickboxBrowser'; // Replace with your secret name
 
-// ✅ Load secret from Azure Key Vault
-async function loadSecretToEnv(secretName) {
+// ✅ Load Kickbox API key from Azure Key Vault
+async function loadKickboxKey() {
   try {
-    const latestSecret = await secretClient.getSecret(secretName);
-    process.env.KICKBOX_API_KEY = latestSecret.value;
+    const secret = await secretClient.getSecret(secretName);
+    process.env.KICKBOX_API_KEY = secret.value;
     console.log("✅ Kickbox API key loaded from Key Vault.");
-  } catch (error) {
-    console.error("❌ Failed to load secret:", error.message);
-    throw error;
+  } catch (err) {
+    console.error("❌ Failed to load Kickbox key:", err.message);
+    throw err;
   }
 }
 
-// ✅ Kickbox initialization
-let kickbox;
+// ✅ Initialize Kickbox client (singleton)
+let kickboxClient;
 async function initKickbox() {
-  if (!kickbox) {
-    const kickboxModule = await import('kickbox');
-    kickbox = kickboxModule.kickbox(process.env.KICKBOX_API_KEY);
+  if (!kickboxClient) {
+    const { client } = await import('kickbox');
+    kickboxClient = client(process.env.KICKBOX_API_KEY).kickbox();
     console.log("✅ Kickbox client initialized.");
   }
-  return kickbox;
+  return kickboxClient;
 }
 
-// ✅ Email verification function
-async function checkEmail(email) {
+// ✅ Verify email using Kickbox with async/await
+async function verifyEmail(email) {
   const kb = await initKickbox();
   return new Promise((resolve, reject) => {
     kb.verify(email, (err, response) => {
       if (err) return reject(err);
-      resolve(response.body);
+      resolve(response.body); // Kickbox returns result in response.body
     });
   });
 }
 
-// ✅ Express app setup
+// ✅ Express setup
 const app = express();
 const port = process.env.PORT || 80;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// ✅ Helmet CSP for security
-app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "http://localhost:3000"],
-      scriptSrc: [
-        "'self'",
-        "https://cdn.jsdelivr.net",
-        "https://cdn.jsdelivr.net/npm/bootstrap",
-        "'unsafe-inline'"
-      ],
-      styleSrc: [
-        "'self'",
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
-        "'unsafe-inline'"
-      ],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      frameSrc: ["'self'"]
-    }
-  })
-);
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ Helmet CSP
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "http://localhost:3000"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+      styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"]
+    }
+  })
+);
+
 // ✅ Routes
 app.get('/', (req, res) => res.render('index'));
-app.get('/email-pass', (req, res) => res.render('emailPass'));
-app.get('/enter-info', (req, res) => res.render('volunteerinfo'));
-app.get('/nonProfile', (req, res) => res.render('nonProfile'));
-app.get('/health', (req, res) => res.status(200).send('OK'));
-
-// ✅ Email validation route
 app.get('/validate-email', async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -104,23 +84,21 @@ app.get('/validate-email', async (req, res) => {
   }
 
   try {
-    const response = await checkEmail(email);
-    res.json({ result: response.result, reason: response.reason });
-  } catch {
+    const result = await verifyEmail(email);
+    res.json({ result: result.result, reason: result.reason });
+  } catch (err) {
+    console.error("Kickbox verification error:", err);
     res.status(500).json({ error: "Verification failed" });
   }
 });
 
-// ✅ Async startup: load secret, init Kickbox, start server
+// ✅ Startup
 (async () => {
   try {
-    await loadSecretToEnv(secretName);
+    await loadKickboxKey();
     await initKickbox();
-    app.listen(port, () => {
-      console.log(`✅ Server running on http://localhost:${port}`);
-      console.log(`✅ Managed Identity authentication active`);
-    });
-  } catch (error) {
-    console.error("❌ Failed to start server:", error);
+    app.listen(port, () => console.log(`✅ Server running on http://localhost:${port}`));
+  } catch (err) {
+    console.error("❌ Failed to start server:", err);
   }
 })();
