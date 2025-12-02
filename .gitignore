@@ -1,0 +1,4 @@
+FETCH_HEAD
+git
+node_modules/
+.env
