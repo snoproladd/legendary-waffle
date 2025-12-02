@@ -1,29 +1,41 @@
 
-# Use an official Node.js LTS image
-FROM node:18-alpine
+# ---- Stage 1: Build ----
+FROM node:18-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files first for efficient caching
+# Copy package files first for caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install all dependencies (including dev for build)
+RUN npm ci
 
-# Copy the rest of the app
+# Copy source code
 COPY . .
 
-# Set environment variable for PORT (Azure expects this)
+# Run build step (if you have one, e.g., TypeScript or React)
+RUN npm run build
+
+# ---- Stage 2: Production ----
+FROM node:18-alpine AS production
+
+WORKDIR /app
+
+# Copy only necessary files from build stage
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+# If no dist folder, copy your app files:
+# COPY --from=build /app/index.js ./index.js
+# COPY --from=build /app/views ./views
+
+ENV NODE_ENV=production
 ENV PORT=80
 
-# Expose the port
 EXPOSE 80
 
-# Health check (optional but recommended)
-# This checks if your app responds on /health every 30s
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
 
-# Start the app
 CMD ["npm", "start"]
