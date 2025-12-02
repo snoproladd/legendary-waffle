@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "build": "echo 'No build step needed' || exit 0"
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",
