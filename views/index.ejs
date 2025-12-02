@@ -1,0 +1,59 @@
+<%- include('partials/header.ejs') %>
+<section id="jumbotron">
+    <div class="my-1"> 
+        <div class="jumbo-contain p-5 text-center bg-body-tertiary"> 
+            <div class="container py-5"> 
+                <h1 class="text-body-emphasis text jumbo-banner">Albany Regional Convention of Jehovah's Witnesses</h1> 
+                <div class="p-5 text-center bg-body-tertiary jumbo-descrip">
+                    <div class="container py-5">
+                        <h1 class="text-body-emphasis">Welcome, Convention Volunteers!</h1>
+                        <p class="col-lg-8 mx-auto lead">Thank you for your willingness to serve in the Parking Department at the Albany Regional Convention of Jehovah's Witnesses. Please use this site to enter your information, and to access schedules, instructions, and updates.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<section id="features">
+<div class="container px-4 py-5">
+    <!-- <h2 class="pb-2 border-bottom">Site Features</h2> -->
+    <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 py-5">
+        <div class="col d-flex flex-column align-items-start gap-2">
+            <h2 class="fw-bold text-body-emphasis">Create a User Profile</h2>
+            <p class="text-body-secondary feature-showcase">To get the most from this site please create a profile. Without a profile you will still be able to volunteer, but you will not have access to crew schedule, assignments, or other information.</p>
+            <div class = "row flex-row gap-3 row-cols-auto">
+                <a href="/email-pass" class="btn btn-primary btn-lg">Create Profile</a>
+                <a href="/enter-info" class="btn btn-secondary btn-lg">Enter Volunteer Info Only</a>
+            </div>  
+        </div>
+        <div class="col">
+            <div class="row row-cols-1 row-cols-sm-2 g-4">
+                <div class="col d-flex flex-column gap-2">
+                    <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                        <img src='../images/calendar.jpg' alt='Calendar with a date circled' class='feature-icon'>
+                    </div>
+                    
+                    <h4 class="fw-semibold mb-0 text-body-emphasis">Parking Schedules</h4>
+                    <p class="text-body-secondary">View and download most current schedules</p>
+                </div>
+                <div class="col d-flex flex-column gap-2">
+                    <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                        <img src='../images/map.jpg' alt='Map with a pin pointing to a location' class='feature-icon'>
+                    </div>
+                    <h4 class="fw-semibold mb-0 text-body-emphasis">Maps</h4>
+                    <p class="text-body-secondary">View various maps related to parking.</p>
+                </div>
+                <div class="col d-flex flex-column gap-2">
+                    <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                        <img src='../images/info.jpg' alt='List with adjacent letter I' class='feature-icon'>
+                    </div>
+                    
+                    <h4 class="fw-semibold mb-0 text-body-emphasis">View my information</h4>
+                    <p class="text-body-secondary">View and edit your contact information</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+<%- include('partials/footer.ejs') %>
