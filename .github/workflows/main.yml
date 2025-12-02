@@ -47,7 +47,7 @@ jobs:
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
 
-      # 7. Login to Azure using OIDC
+      # 7. Login to Azure using OIDC (Fixed)
       - name: Azure Login
         uses: azure/login@v2
         with:
@@ -55,7 +55,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
-      # 8. Deploy to Azure App Service (Container)
+      # 8. Deploy to Azure App Service (Docker)
       - name: Deploy to Azure Web App (Docker)
         uses: azure/webapps-deploy@v3
         with:
