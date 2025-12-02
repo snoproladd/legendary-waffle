@@ -1,3 +1,4 @@
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import path from 'path';
@@ -5,19 +6,15 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import helmet from 'helmet';
 import { DefaultAzureCredential } from "@azure/identity";
-import { SecretClient } from "@azure/keyvault-secrets"; 
+import { SecretClient } from "@azure/keyvault-secrets";
 
-const kickboxModule = await import('kickbox');
-kickboxClient = kickboxModule.default.client(process.env.KICKBOX_API_KEY).kickbox();
-
-
+// ✅ Azure Key Vault setup
 const vaultName = 'ApiStorage'; // Replace with your Key Vault name
 const vaultUrl = `https://${vaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(vaultUrl, credential);
 const secretName = 'kickboxBrowser'; // Replace with your secret name
 
-// ✅ Load Kickbox API key from Azure Key Vault
 async function loadKickboxKey() {
   try {
     const secret = await secretClient.getSecret(secretName);
@@ -29,9 +26,7 @@ async function loadKickboxKey() {
   }
 }
 
-// ✅ Initialize Kickbox client (singleton)
-
-
+// ✅ Kickbox initialization (singleton)
 let kickboxClient;
 
 async function initKickbox() {
@@ -44,15 +39,13 @@ async function initKickbox() {
   return kickboxClient;
 }
 
-
-
-// ✅ Verify email using Kickbox with async/await
+// ✅ Verify email using Kickbox
 async function verifyEmail(email) {
   const kb = await initKickbox();
   return new Promise((resolve, reject) => {
     kb.verify(email, (err, response) => {
       if (err) return reject(err);
-      resolve(response.body); // Kickbox returns result in response.body
+      resolve(response.body);
     });
   });
 }
