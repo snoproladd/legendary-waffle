@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm ci
+      - name: Build App
+        run: npm run build
       - name: Log in to GHCR
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Build Docker image
@@ -25,5 +29,4 @@ jobs:
           IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/legendary-waffle
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
-      - name: Install dependencies
-        run: npm ci
+      
