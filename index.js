@@ -1,4 +1,7 @@
 
+import crypto from 'crypto';
+globalThis.crypto = crypto;
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import path from 'path';
