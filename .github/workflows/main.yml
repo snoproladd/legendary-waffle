@@ -47,7 +47,11 @@ jobs:
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
 
+<<<<<<< HEAD
       # 7. Login to Azure using OIDC (your previous success)
+=======
+      # 7. Login to Azure using OIDC (Fixed)
+>>>>>>> 819a06157eba518c7d12febaf3aaff644f4f625e
       - name: Azure Login
         uses: azure/login@v2
         with:
