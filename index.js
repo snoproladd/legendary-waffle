@@ -1,3 +1,4 @@
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import path from 'path';
@@ -6,32 +7,39 @@ import { dirname } from 'path';
 import helmet from 'helmet';
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
+import crypto from "crypto";
 
-const vaultName = 'ApiStorage';
+// ✅ Azure Key Vault setup
+const vaultName = 'ApiStorage'; // Replace with your Key Vault name
 const vaultUrl = `https://${vaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(vaultUrl, credential);
-const secretName = 'kickboxBrowser';
-
+const secretName = 'kickboxBrowser'; // Replace with your secret name
 
 // ✅ Load secret from Azure Key Vault
 async function loadSecretToEnv(secretName) {
-  const latestSecret = await secretClient.getSecret(secretName);
-  process.env.KICKBOX_API_KEY = latestSecret.value;
-  console.log("✅ Kickbox API key loaded.");
+  try {
+    const latestSecret = await secretClient.getSecret(secretName);
+    process.env.KICKBOX_API_KEY = latestSecret.value;
+    console.log("✅ Kickbox API key loaded from Key Vault.");
+  } catch (error) {
+    console.error("❌ Failed to load secret:", error.message);
+    throw error;
+  }
 }
 
+// ✅ Kickbox initialization
 let kickbox;
-
 async function initKickbox() {
   if (!kickbox) {
     const kickboxModule = await import('kickbox');
-    // kickbox = kickboxModule.kickbox(process.env.KICKBOX_API_KEY); // ✅ Correct usage
+    kickbox = kickboxModule.kickbox(process.env.KICKBOX_API_KEY);
     console.log("✅ Kickbox client initialized.");
   }
   return kickbox;
 }
 
+// ✅ Email verification function
 async function checkEmail(email) {
   const kb = await initKickbox();
   return new Promise((resolve, reject) => {
@@ -42,13 +50,13 @@ async function checkEmail(email) {
   });
 }
 
+// ✅ Express app setup
 const app = express();
-const port = 3001;
-
+const port = process.env.PORT || 80;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ✅ Helmet CSP updated for Bootstrap and custom scripts
+// ✅ Helmet CSP for security
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
@@ -83,22 +91,14 @@ app.get('/', (req, res) => res.render('index'));
 app.get('/email-pass', (req, res) => res.render('emailPass'));
 app.get('/enter-info', (req, res) => res.render('volunteerinfo'));
 app.get('/nonProfile', (req, res) => res.render('nonProfile'));
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
-app.post('/submit-info', async (req, res) => {
-  const { email } = req.body;
-  try {
-    const response = await checkEmail(email);
-    res.json(response);
-  } catch {
-    res.status(500).send("Email verification failed.");
-  }
-});
-
+// ✅ Email validation route
 app.get('/validate-email', async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
 
-  // ✅ Block jwpub.org domain
+  // Block jwpub.org domain
   if (email.toLowerCase().endsWith('@jwpub.org')) {
     return res.json({ result: 'invalid', reason: 'Domain not allowed' });
   }
@@ -118,6 +118,7 @@ app.get('/validate-email', async (req, res) => {
     await initKickbox();
     app.listen(port, () => {
       console.log(`✅ Server running on http://localhost:${port}`);
+      console.log(`✅ Managed Identity authentication active`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
