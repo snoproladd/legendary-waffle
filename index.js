@@ -10,7 +10,6 @@ import { dirname } from 'path';
 import helmet from 'helmet';
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
-import kickbox from 'kickbox'
 
 // ✅ Azure Key Vault setup
 const vaultName = 'ApiStorage'; // Replace with your Key Vault name
@@ -31,15 +30,18 @@ async function loadKickboxKey() {
 }
 
 // ✅ Kickbox initialization (singleton)
+
 let kickboxClient;
 
 async function initKickbox() {
   if (!kickboxClient) {
-    kickboxClient = kickbox.kickbox(process.env.KICKBOX_API_KEY);
+    const kickboxModule = await import('kickbox');
+    kickboxClient = kickboxModule.default.client(process.env.KICKBOX_API_KEY).kickbox();
     console.log("✅ Kickbox client initialized.");
   }
   return kickboxClient;
 }
+
 
 // ✅ Verify email using Kickbox
 async function verifyEmail(email) {
@@ -78,6 +80,7 @@ app.use(
 );
 
 // ✅ Routes
+app.get('/health', (req, res) => res.send('OK'));
 app.get('/', (req, res) => res.render('index'));
 app.get('/validate-email', async (req, res) => {
   const email = req.query.email;
