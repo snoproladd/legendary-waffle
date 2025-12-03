@@ -10,6 +10,7 @@ import { dirname } from 'path';
 import helmet from 'helmet';
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
+import kickbox from 'kickbox'
 
 // ✅ Azure Key Vault setup
 const vaultName = 'ApiStorage'; // Replace with your Key Vault name
@@ -34,8 +35,7 @@ let kickboxClient;
 
 async function initKickbox() {
   if (!kickboxClient) {
-    const kickboxModule = await import('kickbox');
-    kickboxClient = kickboxModule.client(process.env.KICKBOX_API_KEY);
+    kickboxClient = kickbox(process.env.KICKBOX_API_KEY);
     console.log("✅ Kickbox client initialized.");
   }
   return kickboxClient;
