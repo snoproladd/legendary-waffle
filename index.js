@@ -1,14 +1,6 @@
 
-// Check if running in Node.js or Browser
-if (typeof window === 'undefined') {
-  // Node.js environment
-  import('crypto').then(nodeCrypto => {
-    globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto; // Use WebCrypto if available
-  }).catch(err => console.error('Failed to load Node crypto:', err));
-} else {
-  // Browser environment
-  globalThis.crypto = window.crypto; // Use Web Crypto API
-}
+import crypto from 'crypto';
+globalThis.crypto = crypto;
 
 
 import express from 'express';
