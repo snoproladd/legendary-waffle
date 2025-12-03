@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 // Check if running in Node.js or Browser
 if (typeof window === 'undefined') {
   // Node.js environment
@@ -7,7 +6,7 @@ if (typeof window === 'undefined') {
   }).catch(err => console.error('Failed to load Node crypto:', err));
 } else {
   // Browser environment
-  globalThis.crypto = crypto; // Use Web Crypto API
+  globalThis.crypto = window.crypto; // Use Web Crypto API
 }
 
 import express from 'express';
