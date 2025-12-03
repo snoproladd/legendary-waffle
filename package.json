@@ -12,6 +12,7 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-secrets": "^4.10.0",
+    "bind": "^0.1.6",
     "body-parser": "^2.2.1",
     "build": "^0.1.4",
     "docker": "^1.0.0",
