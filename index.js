@@ -35,7 +35,7 @@ let kickboxClient;
 
 async function initKickbox() {
   if (!kickboxClient) {
-    kickboxClient = kickbox(process.env.KICKBOX_API_KEY);
+    kickboxClient = kickbox.kickbox(process.env.KICKBOX_API_KEY);
     console.log("✅ Kickbox client initialized.");
   }
   return kickboxClient;
