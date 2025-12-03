@@ -1,6 +1,15 @@
 
-import crypto from 'crypto';
-globalThis.crypto = crypto;
+// Check if running in Node.js or Browser
+if (typeof window === 'undefined') {
+  // Node.js environment
+  import('crypto').then(nodeCrypto => {
+    globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto; // Use WebCrypto if available
+  }).catch(err => console.error('Failed to load Node crypto:', err));
+} else {
+  // Browser environment
+  globalThis.crypto = window.crypto; // Use Web Crypto API
+}
+
 
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -82,6 +91,8 @@ app.use(
 // ✅ Routes
 app.get('/health', (req, res) => res.send('OK'));
 app.get('/', (req, res) => res.render('index'));
+app.get('/email-pass', (req,res)=>res.render('emailPass'));
+app.get('/nonProfile', (req,res) => res.render('nonProfile'));
 app.get('/validate-email', async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
