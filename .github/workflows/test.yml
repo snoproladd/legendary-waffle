@@ -4,7 +4,7 @@ name: Build and Deploy Node.js App to Azure via Docker
 on:
   push:
     branches:
-      - '**'
+      - testing
   workflow_dispatch:
 
 permissions:
