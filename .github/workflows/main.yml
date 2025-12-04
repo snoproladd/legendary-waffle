@@ -20,19 +20,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        include:
-          - branch: main
-            tag_suffix: prod
-          - branch: testing
-            tag_suffix: test
-
-    # Only run the matrix entry that matches the current ref
-    if: >
-      (github.ref == 'refs/heads/main' && matrix.branch == 'main') ||
-      (github.ref == 'refs/heads/testing' && matrix.branch == 'testing')
-
     steps:
       # 1) Checkout
       - uses: actions/checkout@v4
@@ -47,11 +34,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4) Derive IMAGE once and export to job env (avoids env cross-ref errors)
+      # 4) Derive IMAGE once and export to job env
       - name: Set IMAGE env
         run: echo "IMAGE=${{ env.REGISTRY }}/albanyjwparking" >> $GITHUB_ENV
 
-      # 5) Login to GHCR using job token (no PAT required)
+      # 5) Derive TAG_SUFFIX from the branch (main => prod, testing => test)
+      - name: Set TAG_SUFFIX env (branch-aware)
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "TAG_SUFFIX=prod" >> $GITHUB_ENV
+          else
+            echo "TAG_SUFFIX=test" >> $GITHUB_ENV
+          fi
+
+      # 6) Login to GHCR using GITHUB_TOKEN (no PAT required)
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -59,22 +55,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      # 6) Build Docker image (branch-aware tags)
+      # 7) Build Docker image (branch-aware tags)
       - name: Build Docker image
         run: |
           docker build --pull \
-            -t ${{ env.IMAGE }}:${{ matrix.tag_suffix }}-${{ github.sha }} \
-            -t ${{ env.IMAGE }}:${{ matrix.tag_suffix }} \
+            -t ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }} \
+            -t ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }} \
             -t ${{ env.IMAGE }}:latest .
 
-      # 7) Push Docker image
+      # 8) Push Docker image
       - name: Push Docker image
         run: |
-          docker push ${{ env.IMAGE }}:${{ matrix.tag_suffix }}-${{ github.sha }}
-          docker push ${{ env.IMAGE }}:${{ matrix.tag_suffix }}
+          docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}
+          docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}
           docker push ${{ env.IMAGE }}:latest
 
-      # 8) Login to Azure via OIDC
+      # 9) Login to Azure via OIDC
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
@@ -82,9 +78,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 9) Deploy to Azure App Service (no slots) with deterministic tag -> triggers pull
+      # 10) Deploy to Azure App Service (no slots) with deterministic tag -> triggers pull
       - name: Deploy to Azure Web App (Docker)
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'albanyjwparking'
-          images: '${{ env.IMAGE }}:${{ matrix.tag_suffix }}-${{ github.sha }}'
+          images: '${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}'
