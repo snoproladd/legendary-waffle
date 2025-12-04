@@ -5,17 +5,10 @@ on:
     branches:
       - main
       - testing
-      - main
-      - testing
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write        # OIDC login to Azure (no PATs needed)
-
-env:
-  ACR_NAME: albanyjwparkingacr         # <-- set to the ACR you created
-  REPO: albanyjwparking                # <-- repository name in ACR
   id-token: write        # OIDC login to Azure (no PATs needed)
 
 env:
@@ -28,13 +21,10 @@ jobs:
 
     steps:
       # 1) Checkout
-      # 1) Checkout
       - uses: actions/checkout@v4
 
       # 2) Node (optional if Dockerfile handles npm ci)
-      # 2) Node (optional if Dockerfile handles npm ci)
       - name: Set up Node.js
-        uses: actions/setup-node@v4
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
@@ -42,8 +32,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 3) Branch-aware tag suffix
-      - name: Set TAG_SUFFIX env
       # 3) Branch-aware tag suffix
       - name: Set TAG_SUFFIX env
         run: |
