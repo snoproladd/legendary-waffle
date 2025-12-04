@@ -59,18 +59,7 @@ jobs:
       - name: ACR Login
         run: az acr login --name ${{ env.ACR_NAME }}
 
-      # 6) Build & Push Docker image
-      - name: Build & Push Docker image
-        run: |
-          IMAGE=${{ env.ACR_LOGIN_SERVER }}/${{ env.REPO }}
-          docker build --pull \
-            -t "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}" \
-            -t "$IMAGE:${{ env.TAG_SUFFIX }}" \
-            -t "$IMAGE:latest" .
-          docker push "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}"
-          docker push "$IMAGE:${{ env.TAG_SUFFIX }}"
-          docker push "$IMAGE:latest"
-
+     
       # 6) Build & Push Docker image (unchanged)
       - name: Build & Push Docker image
         run: |
