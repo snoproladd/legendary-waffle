@@ -71,7 +71,47 @@ jobs:
           docker push "$IMAGE:${{ env.TAG_SUFFIX }}"
           docker push "$IMAGE:latest"
 
-      # 7) Deploy: set the image tag -> App Service pulls immediately
+      # 6) Build & Push Docker image (unchanged)
+      - name: Build & Push Docker image
+        run: |
+          IMAGE=${{ env.ACR_LOGIN_SERVER }}/${{ env.REPO }}
+          docker build --pull \
+            -t "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}" \
+            -t "$IMAGE:${{ env.TAG_SUFFIX }}" \
+            -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}"
+          docker push "$IMAGE:${{ env.TAG_SUFFIX }}"
+          docker push "$IMAGE:latest"
+
+      # 6b) Ensure Web App can pull from ACR via Managed Identity (new step)
+      - name: Grant Web App MSI 'AcrPull' on ACR
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            # Assign system identity to the Web App (idempotent)
+            WEBAPP_NAME="albanyjwparking"
+            RG_NAME="defaultresourcegroup-eus"
+            ACR_NAME="${{ env.ACR_NAME }}"
+
+            az webapp identity assign --name "$WEBAPP_NAME" --resource-group "$RG_NAME" >/dev/null
+
+            # Get principalId of the system-assigned identity
+            PRINCIPAL_ID=$(az webapp show \
+              --name "$WEBAPP_NAME" \
+              --resource-group "$RG_NAME" \
+              --query identity.principalId -o tsv)
+
+            # Get ACR resource ID
+            ACR_ID=$(az acr show -n "$ACR_NAME" --query id -o tsv)
+
+            # Grant AcrPull (silence error if already exists)
+            az role assignment create \
+              --assignee "$PRINCIPAL_ID" \
+              --role "AcrPull" \
+              --scope "$ACR_ID" \
+              >/dev/null || echo "Role assignment may already exist; continuing."
+
+      # 7) Deploy: set the image tag -> App Service pulls immediately (updated flags)
       - name: Deploy to Azure Web App (Docker via ACR)
         uses: azure/cli@v2
         with:
@@ -80,12 +120,14 @@ jobs:
             az webapp config container set \
               --name albanyjwparking \
               --resource-group defaultresourcegroup-eus \
-              --docker-custom-image-name "$IMAGE" \
-              --docker-registry-server-url "https://${{ env.ACR_LOGIN_SERVER }}"
+              --container-image-name "$IMAGE" \
+              --container-registry-url "https://${{ env.ACR_LOGIN_SERVER }}"
 
-      # 8) Optional restart (usually not necessary)
+      # 8) Optional restart (unchanged)
       - name: Restart Web App
         uses: azure/cli@v2
         with:
           inlineScript: |
             az webapp restart --name albanyjwparking --resource-group defaultresourcegroup-eus
+
+      
