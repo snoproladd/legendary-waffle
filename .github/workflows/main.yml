@@ -14,7 +14,6 @@ permissions:
 
 env:
   ACR_NAME: albanyjwparkingacr         # <-- set to the ACR you created
-  ACR_LOGIN_SERVER: ${{ env.ACR_NAME }}.azurecr.io
   REPO: albanyjwparking                # <-- repository name in ACR
 
 jobs:
@@ -38,10 +37,15 @@ jobs:
       - name: Set TAG_SUFFIX env
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "TAG_SUFFIX=prod" >> $GITHUB_ENV
+            echo "TAG_SUFFIX=prod" >> "$GITHUB_ENV"
           else
-            echo "TAG_SUFFIX=test" >> $GITHUB_ENV
+            echo "TAG_SUFFIX=test" >> "$GITHUB_ENV"
           fi
+
+      # 3b) Compute ACR_LOGIN_SERVER (cannot reference env inside workflow-level env)
+      - name: Set ACR_LOGIN_SERVER env
+        run: |
+          echo "ACR_LOGIN_SERVER=${{ env.ACR_NAME }}.azurecr.io" >> "$GITHUB_ENV"
 
       # 4) OIDC login to Azure
       - name: Login to Azure (OIDC)
@@ -55,17 +59,17 @@ jobs:
       - name: ACR Login
         run: az acr login --name ${{ env.ACR_NAME }}
 
-      # 6) Build & push to ACR
+      # 6) Build & Push Docker image
       - name: Build & Push Docker image
         run: |
           IMAGE=${{ env.ACR_LOGIN_SERVER }}/${{ env.REPO }}
           docker build --pull \
-            -t $IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }} \
-            -t $IMAGE:${{ env.TAG_SUFFIX }} \
-            -t $IMAGE:latest .
-          docker push $IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}
-          docker push $IMAGE:${{ env.TAG_SUFFIX }}
-          docker push $IMAGE:latest
+            -t "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}" \
+            -t "$IMAGE:${{ env.TAG_SUFFIX }}" \
+            -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}"
+          docker push "$IMAGE:${{ env.TAG_SUFFIX }}"
+          docker push "$IMAGE:latest"
 
       # 7) Deploy: set the image tag -> App Service pulls immediately
       - name: Deploy to Azure Web App (Docker via ACR)
@@ -76,8 +80,8 @@ jobs:
             az webapp config container set \
               --name albanyjwparking \
               --resource-group defaultresourcegroup-eus \
-              --docker-custom-image-name $IMAGE \
-              --docker-registry-server-url https://${{ env.ACR_LOGIN_SERVER }}
+              --docker-custom-image-name "$IMAGE" \
+              --docker-registry-server-url "https://${{ env.ACR_LOGIN_SERVER }}"
 
       # 8) Optional restart (usually not necessary)
       - name: Restart Web App
