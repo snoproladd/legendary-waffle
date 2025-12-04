@@ -4,41 +4,43 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files first for caching
+# Copy package files and install all deps (build tools included)
 COPY package*.json ./
-
-# Install all dependencies (including dev for build)
 RUN npm ci
 
-# Copy source code
+# Copy source
 COPY . .
 
-# No build step needed for Express/EJS, but keep placeholder
-RUN npm run build || echo "No build step"
+# If you have a real build step (e.g., TypeScript):
+# RUN npm run build
+# If not, keep this as a no-op or remove it to avoid confusion
+# RUN npm run build || echo "No build step"
 
 # ---- Stage 2: Production ----
 FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Copy only necessary files from build stage
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
+# Copy only what's needed for runtime
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy app artifacts (built files if you have them)
 COPY --from=build /app/index.js ./index.js
 COPY --from=build /app/views ./views
 COPY --from=build /app/public ./public
 COPY --from=build /app/types ./types
+# If you emit a /dist from a build step, copy that instead:
+# COPY --from=build /app/dist ./dist
 
-# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=80
 
-# Expose port
 EXPOSE 80
 
-# Health check (optional)
+RUN apk add --no-cache curl
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+  CMD curl -fsS http://localhost:80/health || exit 1
 
-# Start the app
-CMD ["npm", "start"]
+# Start directly with Node
+CMD ["node", "index.js"]
