@@ -1,5 +1,5 @@
 
-name: Build & Deploy Node.js to Azure (GHCR, main + testing, no slots)
+name: Build & Deploy Node.js to Azure (ACR, main + testing, no slots)
 
 on:
   push:
@@ -10,11 +10,12 @@ on:
 
 permissions:
   contents: read
-  packages: write          # publish to GHCR via GITHUB_TOKEN
-  id-token: write          # OIDC login to Azure
+  id-token: write        # OIDC login to Azure (no PATs needed)
 
 env:
-  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  ACR_NAME: albanyjwparkingacr         # <-- set to the ACR you created
+  ACR_LOGIN_SERVER: ${{ env.ACR_NAME }}.azurecr.io
+  REPO: albanyjwparking                # <-- repository name in ACR
 
 jobs:
   build-and-deploy:
@@ -33,12 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 3) Derive IMAGE once and export to job env
-      - name: Set IMAGE env
-        run: echo "IMAGE=${{ env.REGISTRY }}/albanyjwparking" >> $GITHUB_ENV
-
-      # 4) Set TAG_SUFFIX based on branch (main => prod, testing => test)
-      - name: Set TAG_SUFFIX env (branch-aware)
+      # 3) Branch-aware tag suffix
+      - name: Set TAG_SUFFIX env
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "TAG_SUFFIX=prod" >> $GITHUB_ENV
@@ -46,30 +43,7 @@ jobs:
             echo "TAG_SUFFIX=test" >> $GITHUB_ENV
           fi
 
-      # 5) Log in to GHCR using GITHUB_TOKEN (no PAT)
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      # 6) Build Docker image with deterministic tags
-      - name: Build Docker image
-        run: |
-          docker build --pull \
-            -t ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }} \
-            -t ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }} \
-            -t ${{ env.IMAGE }}:latest .
-
-      # 7) Push Docker image
-      - name: Push Docker image
-        run: |
-          docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}
-          docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}
-          docker push ${{ env.IMAGE }}:latest
-
-      # 8) Login to Azure via OIDC
+      # 4) OIDC login to Azure
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
@@ -77,33 +51,37 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 9A) Deploy to Azure App Service (GHCR public package)
-      #     If your GHCR package is PUBLIC, this is sufficient.
-      - name: Deploy to Azure Web App (Docker)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'albanyjwparking'
-          images: '${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}'
+      # 5) Tokenless ACR login using Azure CLI session
+      - name: ACR Login
+        run: az acr login --name ${{ env.ACR_NAME }}
 
-      # 9B) (Optional) Configure GHCR registry credentials for PRIVATE package
-      #     Uncomment this step ONLY if your GHCR package is PRIVATE and App Service needs pull credentials.
-      #     Add repo secrets: GHCR_PULL_USERNAME (your GitHub username/org service account)
-      #                        GHCR_PULL_TOKEN    (PAT with 'read:packages' scope; enable SSO if org-enforced)
-      #
-      # - name: Configure GHCR registry credentials (private packages)
-      #   uses: azure/cli@v2
-      #   with:
-      #     inlineScript: |
-      #       az webapp config container set \
-      #         --name albanyjwparking \
-      #         --resource-group defaultresourcegroup-eus \
-      #         --docker-custom-image-name '${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}' \
-      #         --docker-registry-server-url 'https://ghcr.io' \
-      #         --docker-registry-server-user '${{ secrets.GHCR_PULL_USERNAME }}' \
-      #         --docker-registry-server-password '${{ secrets.GHCR_PULL_TOKEN }}'
-      #
-      # Optional restart if you prefer to force refresh
+      # 6) Build & push to ACR
+      - name: Build & Push Docker image
+        run: |
+          IMAGE=${{ env.ACR_LOGIN_SERVER }}/${{ env.REPO }}
+          docker build --pull \
+            -t $IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }} \
+            -t $IMAGE:${{ env.TAG_SUFFIX }} \
+            -t $IMAGE:latest .
+          docker push $IMAGE:${{ env.TAG_SUFFIX }}-${{ github.sha }}
+          docker push $IMAGE:${{ env.TAG_SUFFIX }}
+          docker push $IMAGE:latest
+
+      # 7) Deploy: set the image tag -> App Service pulls immediately
+      - name: Deploy to Azure Web App (Docker via ACR)
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            IMAGE=${{ env.ACR_LOGIN_SERVER }}/${{ env.REPO }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}
+            az webapp config container set \
+              --name albanyjwparking \
+              --resource-group defaultresourcegroup-eus \
+              --docker-custom-image-name $IMAGE \
+              --docker-registry-server-url https://${{ env.ACR_LOGIN_SERVER }}
+
+      # 8) Optional restart (usually not necessary)
       - name: Restart Web App
         uses: azure/cli@v2
         with:
           inlineScript: |
+            az webapp restart --name albanyjwparking --resource-group defaultresourcegroup-eus
