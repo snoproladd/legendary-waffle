@@ -1,5 +1,5 @@
 
-name: Build & Deploy Node.js to Azure (GHCR, main + testing)
+name: Build & Deploy Node.js to Azure (GHCR, main + testing, no slots)
 
 on:
   push:
@@ -10,12 +10,11 @@ on:
 
 permissions:
   contents: read
-  packages: write          # needed for GHCR push with GITHUB_TOKEN
-  id-token: write          # needed for OIDC login to Azure
+  packages: write          # GHCR push with GITHUB_TOKEN
+  id-token: write          # OIDC login to Azure
 
 env:
   REGISTRY: ghcr.io/${{ github.repository_owner }}
-  IMAGE: ${{ env.REGISTRY }}/albanyjwparking
 
 jobs:
   build-and-deploy:
@@ -25,29 +24,34 @@ jobs:
       matrix:
         include:
           - branch: main
-            slot: Production
             tag_suffix: prod
           - branch: testing
-            slot: Staging
             tag_suffix: test
 
-    # Only run the matrix entry matching the current ref
+    # Only run the matrix entry that matches the current ref
     if: >
       (github.ref == 'refs/heads/main' && matrix.branch == 'main') ||
       (github.ref == 'refs/heads/testing' && matrix.branch == 'testing')
 
     steps:
+      # 1) Checkout
       - uses: actions/checkout@v4
 
+      # 2) Node (optional, for pre-build tasks)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
 
+      # 3) Install dependencies (skip if Dockerfile does this)
       - name: Install dependencies
         run: npm ci
 
-      # Use GITHUB_TOKEN instead of PAT for GHCR
+      # 4) Derive IMAGE once and export to job env (avoids env cross-ref errors)
+      - name: Set IMAGE env
+        run: echo "IMAGE=${{ env.REGISTRY }}/albanyjwparking" >> $GITHUB_ENV
+
+      # 5) Login to GHCR using job token (no PAT required)
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -55,6 +59,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      # 6) Build Docker image (branch-aware tags)
       - name: Build Docker image
         run: |
           docker build --pull \
@@ -62,12 +67,14 @@ jobs:
             -t ${{ env.IMAGE }}:${{ matrix.tag_suffix }} \
             -t ${{ env.IMAGE }}:latest .
 
+      # 7) Push Docker image
       - name: Push Docker image
         run: |
           docker push ${{ env.IMAGE }}:${{ matrix.tag_suffix }}-${{ github.sha }}
           docker push ${{ env.IMAGE }}:${{ matrix.tag_suffix }}
           docker push ${{ env.IMAGE }}:latest
 
+      # 8) Login to Azure via OIDC
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
@@ -75,10 +82,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Update image to deterministic tag -> triggers App Service to pull
+      # 9) Deploy to Azure App Service (no slots) with deterministic tag -> triggers pull
       - name: Deploy to Azure Web App (Docker)
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'albanyjwparking'
-          slot-name: ${{ matrix.slot }}
           images: '${{ env.IMAGE }}:${{ matrix.tag_suffix }}-${{ github.sha }}'
