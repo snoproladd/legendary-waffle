@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  packages: write          # GHCR push with GITHUB_TOKEN
+  packages: write          # publish to GHCR via GITHUB_TOKEN
   id-token: write          # OIDC login to Azure
 
 env:
@@ -24,21 +24,20 @@ jobs:
       # 1) Checkout
       - uses: actions/checkout@v4
 
-      # 2) Node (optional, for pre-build tasks)
+      # 2) Node (optional if Dockerfile handles npm ci)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18.x'
 
-      # 3) Install dependencies (skip if Dockerfile does this)
       - name: Install dependencies
         run: npm ci
 
-      # 4) Derive IMAGE once and export to job env
+      # 3) Derive IMAGE once and export to job env
       - name: Set IMAGE env
         run: echo "IMAGE=${{ env.REGISTRY }}/albanyjwparking" >> $GITHUB_ENV
 
-      # 5) Derive TAG_SUFFIX from the branch (main => prod, testing => test)
+      # 4) Set TAG_SUFFIX based on branch (main => prod, testing => test)
       - name: Set TAG_SUFFIX env (branch-aware)
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
@@ -47,7 +46,7 @@ jobs:
             echo "TAG_SUFFIX=test" >> $GITHUB_ENV
           fi
 
-      # 6) Login to GHCR using GITHUB_TOKEN (no PAT required)
+      # 5) Log in to GHCR using GITHUB_TOKEN (no PAT)
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -55,7 +54,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      # 7) Build Docker image (branch-aware tags)
+      # 6) Build Docker image with deterministic tags
       - name: Build Docker image
         run: |
           docker build --pull \
@@ -63,14 +62,14 @@ jobs:
             -t ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }} \
             -t ${{ env.IMAGE }}:latest .
 
-      # 8) Push Docker image
+      # 7) Push Docker image
       - name: Push Docker image
         run: |
           docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}
           docker push ${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}
           docker push ${{ env.IMAGE }}:latest
 
-      # 9) Login to Azure via OIDC
+      # 8) Login to Azure via OIDC
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
@@ -78,9 +77,33 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 10) Deploy to Azure App Service (no slots) with deterministic tag -> triggers pull
+      # 9A) Deploy to Azure App Service (GHCR public package)
+      #     If your GHCR package is PUBLIC, this is sufficient.
       - name: Deploy to Azure Web App (Docker)
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'albanyjwparking'
           images: '${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}'
+
+      # 9B) (Optional) Configure GHCR registry credentials for PRIVATE package
+      #     Uncomment this step ONLY if your GHCR package is PRIVATE and App Service needs pull credentials.
+      #     Add repo secrets: GHCR_PULL_USERNAME (your GitHub username/org service account)
+      #                        GHCR_PULL_TOKEN    (PAT with 'read:packages' scope; enable SSO if org-enforced)
+      #
+      # - name: Configure GHCR registry credentials (private packages)
+      #   uses: azure/cli@v2
+      #   with:
+      #     inlineScript: |
+      #       az webapp config container set \
+      #         --name albanyjwparking \
+      #         --resource-group defaultresourcegroup-eus \
+      #         --docker-custom-image-name '${{ env.IMAGE }}:${{ env.TAG_SUFFIX }}-${{ github.sha }}' \
+      #         --docker-registry-server-url 'https://ghcr.io' \
+      #         --docker-registry-server-user '${{ secrets.GHCR_PULL_USERNAME }}' \
+      #         --docker-registry-server-password '${{ secrets.GHCR_PULL_TOKEN }}'
+      #
+      # Optional restart if you prefer to force refresh
+      - name: Restart Web App
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
