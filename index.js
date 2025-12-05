@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { DefaultAzureCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
+import crypto from 'crypto'
 
 // ---- Crypto (Node) ----
 // Provide WebCrypto in Node if not present; harmless in browsers.
@@ -29,6 +30,7 @@ const __dirname  = dirname(__filename);
 
 const app = express();
 
+
 // Use Express’ built-in parsers (no need for body-parser)
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -40,23 +42,58 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- Helmet CSP (switch by environment) ----
 const isProd = process.env.NODE_ENV === 'production';
+
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64'); // 128-bit nonce
+  next();
+});
+
+// 2) CSP with nonces and your allowed sources
 app.use(
-  helmet({
-    contentSecurityPolicy: {
-      useDefaults: true,
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        styleSrc:  ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        imgSrc:    ["'self'", "data:"],
-        fontSrc:   ["'self'", "https://fonts.gstatic.com"],
-        connectSrc: isProd
-          ? ["'self'", "https:", "https://*.azurewebsites.net", "https://albanyjwparking.org"]
-          : ["'self'", "http://localhost:3000"]
-      }
-    }
+  helmet.contentSecurityPolicy({
+    useDefaults: true, // includes base sensible defaults
+    directives: {
+      // Base restrictions
+      "default-src": ["'self'"],
+      "base-uri": ["'self'"],
+      "object-src": ["'none'"],
+      "frame-ancestors": ["'none'"],
+
+      // Scripts: self + jsDelivr + per-request nonce (no unsafe-inline)
+      "script-src": [
+        "'self'",
+        "https://cdn.jsdelivr.net",       // your CDN
+        (req, res) => `'nonce-${res.locals.nonce}'`
+      ],
+
+      // Styles: self + jsDelivr + Google Fonts (no unsafe-inline)
+      "style-src": [
+        "'self'",
+        "https://cdn.jsdelivr.net",       // if you load CSS from jsDelivr
+        "https://fonts.googleapis.com",   // Google Fonts CSS
+        (req, res) => `'nonce-${res.locals.nonce}'`
+      ],
+
+      // Images: self + data URLs (favicons, inline images)
+      "img-src": ["'self'", "data:"],
+
+      // Fonts: self + Google Fonts static
+      "font-src": ["'self'", "https://fonts.gstatic.com"],
+
+      // XHR/fetch/websockets: prod vs dev
+      "connect-src": isProd
+        ? ["'self'", "https:", "https://*.azurewebsites.net", "https://albanyjwparking.org"]
+        : ["'self'", "http://localhost:3000"],
+
+      // Optional: allow inline event handlers only via nonces (already covered)
+      // Optional: upgrade insecure requests (if you might link http assets)
+      // "upgrade-insecure-requests": []
+    },
+    // Optional reporting (CSP Level 3):
+    // reportOnly: false,
   })
 );
+
 
 // ---- Azure Key Vault ----
 const vaultName = 'ApiStorage';                       // your Key Vault name
