@@ -1,60 +1,100 @@
 
 document.addEventListener('DOMContentLoaded', () => {
-  let debounceId;
-  let lastRequestedEmail = '';
+  // Elements
+  const form         = document.querySelector('#account-form') || document.querySelector('form');
+  const emailInput   = document.querySelector('#email');
+  const emailStatus  = document.querySelector('#email-status');
 
-  const emailInput = document.querySelector('#email');
-  const statusDiv = document.querySelector('#email-status');
-  const form = document.querySelector('form');
+  const confirmInput  = document.querySelector('#confirm-email');
+  const confirmStatus = document.querySelector('#confirm-email-status');
 
-  if (!emailInput || !statusDiv || !form) return;
+  const passwordsDiv = document.querySelector('#passwords');
 
-  // Accessibility: let screen readers announce updates
-  statusDiv.setAttribute('role', 'status');
-  statusDiv.setAttribute('aria-live', 'polite');
+ 
 
-  function clearStates() {
-    statusDiv.classList.remove('loading', 'success', 'error');
+const showPasswords = (show) => {
+  if (passwordsDiv) {
+    passwordsDiv.classList.toggle('d-none', !show);
   }
+};
 
-  function setStatusLoading() {
-    clearStates();
-    statusDiv.classList.add('loading');
-    statusDiv.innerHTML =
-      '<span class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></span> Checking...';
-  }
 
-  function setStatusSuccess(msg = '✅ Valid email') {
-    clearStates();
-    statusDiv.classList.add('success');
-    statusDiv.textContent = msg;
-  }
+if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
+  return; // only email controls are truly required
+}
 
-  function setStatusError(msg = 'Invalid email address.') {
-    clearStates();
-    statusDiv.classList.add('error');
-    statusDiv.innerHTML = `
+
+  // Accessibility
+  emailStatus.setAttribute('role', 'status');
+  emailStatus.setAttribute('aria-live', 'polite');
+  confirmStatus.setAttribute('role', 'status');
+  confirmStatus.setAttribute('aria-live', 'polite');
+
+  // Helpers
+  const clearStates = (el) => el.classList.remove('loading', 'success', 'error');
+
+  const setStatusLoading = (el, text = 'Checking...') => {
+    clearStates(el);
+    el.classList.add('loading');
+    el.innerHTML =
+      '<span class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></span> ' +
+      text;
+  };
+
+  const setStatusSuccess = (el, msg = '✅ OK') => {
+    clearStates(el);
+    el.classList.add('success');
+    el.textContent = msg;
+  };
+
+  const setStatusError = (el, msg = 'Error.') => {
+    clearStates(el);
+    el.classList.add('error');
+    el.innerHTML = `
       <div class="alert alert-danger alert-dismissible fade show" role="alert">
         ❌ ${msg}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-    `;
-  }
+      </div>`;
+  };
 
+  
+
+  const setConfirmEnabled = (enabled) => { confirmInput.disabled = !enabled; };
+
+  // Gates
+  let emailDeliverable = false;
+  let emailsMatch      = false;
+  let debounceId;
+
+  // --- Primary email validation (server-backed) ---
   async function validateEmail(email) {
     const requestedEmail = email.trim();
-    lastRequestedEmail = requestedEmail;
-    setStatusLoading();
+    setStatusLoading(emailStatus);
 
     try {
-      const res = await fetch(`/validate-email?email=${encodeURIComponent(requestedEmail)}`);
+      const res  = await fetch(`/validate-email?email=${encodeURIComponent(requestedEmail)}`);
       const data = await res.json().catch(() => ({}));
 
-      // Ignore stale result if input changed while the request was in-flight
+      // If user changed input while request was in-flight, ignore
       if (emailInput.value.trim() !== requestedEmail) return;
 
+      // Block domain
+      if (requestedEmail.toLowerCase().endsWith('@jwpub.org')) {
+        emailDeliverable = false;
+        setStatusError(emailStatus, 'Emails from @jwpub.org are not allowed.');
+        setConfirmEnabled(false);
+        emailsMatch = false;
+        showPasswords(false);
+        return;
+      }
+
       if (!res.ok) {
-        setStatusError(data.error || 'Server error. Please try again later.');
+        emailDeliverable = false;
+        setStatusError(emailStatus, data.error || 'Server error. Please try again later.');
+        setConfirmEnabled(false);
+        emailsMatch = false;
+        
+        showPasswords(false);
         return;
       }
 
@@ -62,53 +102,130 @@ document.addEventListener('DOMContentLoaded', () => {
       const reason = data.reason || '';
 
       if (result === 'deliverable') {
-        setStatusSuccess('✅ Valid email');
+        emailDeliverable = true;
+        setStatusSuccess(emailStatus, '✅ Valid email');
+        setConfirmEnabled(true); // user can now confirm
       } else if (result === 'risky' || result === 'unknown') {
-        setStatusError(reason || 'Email may be risky or unknown.');
+        emailDeliverable = false;
+        setStatusError(emailStatus, reason || 'Email may be risky or unknown.');
+        setConfirmEnabled(false);
+        emailsMatch = false;
+        
+        showPasswords(false);
       } else {
-        setStatusError(reason || 'Invalid email address.');
+        emailDeliverable = false;
+        setStatusError(emailStatus, reason || 'Invalid email address.');
+        setConfirmEnabled(false);
+        emailsMatch = false;
+        
+        showPasswords(false);
       }
+
+      // Re-evaluate the match when primary state changes
+      evaluateConfirmMatch();
     } catch (e) {
-      setStatusError('Error validating email. Please try again later.');
+      emailDeliverable = false;
+      setStatusError(emailStatus, 'Error validating email. Please try again later.');
+      setConfirmEnabled(false);
+      emailsMatch = false;
+      
+      showPasswords(false);
     }
   }
 
+  // --- Confirm email exact match gate (toggles #passwords only) ---
+  function evaluateConfirmMatch() {
+    const emailVal   = emailInput.value.trim();
+    const confirmVal = confirmInput.value.trim();
+
+    if (!emailDeliverable) {
+      emailsMatch = false;
+      clearStates(confirmStatus);
+      confirmStatus.textContent = 'Validate your email first.';
+      
+      showPasswords(false);
+      return;
+    }
+
+    if (!confirmVal) {
+      emailsMatch = false;
+      clearStates(confirmStatus);
+      confirmStatus.textContent = 'Please repeat your email.';
+      
+      showPasswords(false);
+      return;
+    }
+
+    if (confirmVal.toLowerCase() === emailVal.toLowerCase()) {
+      emailsMatch = true;
+      setStatusSuccess(confirmStatus, '✅ Emails match');
+      
+      showPasswords(true);  // <-- only responsibility: reveal passwords div
+    } else {
+      emailsMatch = false;
+      setStatusError(confirmStatus, 'Emails do not match.');
+      
+      showPasswords(false);
+    }
+  }
+
+  // --- Wire up events ---
+
+  // Primary email typing with debounce
   emailInput.addEventListener('input', () => {
     clearTimeout(debounceId);
     const email = emailInput.value.trim();
 
+    // Immediate resets
     if (email === '') {
-      clearStates();
-      statusDiv.textContent = 'Please enter an email address.';
+      emailDeliverable = false;
+      setConfirmEnabled(false);
+      clearStates(emailStatus);
+      emailStatus.textContent = 'Please enter an email address.';
+      emailsMatch = false;
+      
+      showPasswords(false);
       return;
     }
 
     if (email.length < 5) {
-      clearStates();
-      statusDiv.textContent = '';
+      emailDeliverable = false;
+      setConfirmEnabled(false);
+      clearStates(emailStatus);
+      emailStatus.textContent = '';
+      emailsMatch = false;
+      
+      showPasswords(false);
       return;
     }
 
     debounceId = setTimeout(() => {
-      // Avoid redundant calls unless the value changed
-      if (email === lastRequestedEmail) return;
       validateEmail(email);
     }, 500);
   });
 
+  // Confirm-email typing (updates match + toggles #passwords)
+  confirmInput.addEventListener('input', evaluateConfirmMatch);
+
+  // Defense in depth on submit (no password logic here)
   form.addEventListener('submit', (e) => {
     const email = emailInput.value.trim().toLowerCase();
+    const confirm = confirmInput.value.trim().toLowerCase();
+
+    // Block jwpub domain on submit too
     if (email.endsWith('@jwpub.org')) {
       e.preventDefault();
-      setStatusError('Emails from @jwpub.org are not allowed.');
+      setStatusError(emailStatus, 'Emails from @jwpub.org are not allowed.');
       return;
     }
 
-    // Optional: enforce revalidation before submit
-    // e.preventDefault();
-    // validateEmail(email).then(() => {
-    //   if (statusDiv.classList.contains('success')) form.submit();
-    // });
+    // Enforce email deliverability + match before allowing submit
+    evaluateConfirmMatch();
+    if (!(emailDeliverable && emailsMatch)) {
+      e.preventDefault();
+      return;
+    }
+
+    // Password logic is handled by /js/passwords.js; this script does not gate submit beyond emails
   });
 });
-

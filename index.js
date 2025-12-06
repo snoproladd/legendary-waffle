@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { DefaultAzureCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
-import crypto from 'crypto'
+import crypto from 'crypto';
 
 // ---- Crypto (Node) ----
 // Provide WebCrypto in Node if not present; harmless in browsers.
@@ -22,16 +22,20 @@ if (typeof globalThis.crypto === 'undefined') {
 }
 
 // ---- Basics ----
-const PORT = process.env.PORT || 80;   // matches WEBSITES_PORT=80
-const HOST = '0.0.0.0';                // listen on all interfaces
+// Prefer env PORT; default to 80 in production and 3000 otherwise
+const isProd = process.env.NODE_ENV === 'production';
+const PORT = Number(
+  process.env.PORT ??
+  (isProd ? 80 : 3000)
+);
+const HOST = '0.0.0.0'; // listen on all interfaces
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
 const app = express();
 
-
-// Use Express’ built-in parsers (no need for body-parser)
+// Use Express’ built-in parsers
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -41,17 +45,14 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- Helmet CSP (switch by environment) ----
-const isProd = process.env.NODE_ENV === 'production';
-
 app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString('base64'); // 128-bit nonce
   next();
 });
 
-// 2) CSP with nonces and your allowed sources
 app.use(
   helmet.contentSecurityPolicy({
-    useDefaults: true, // includes base sensible defaults
+    useDefaults: true,
     directives: {
       // Base restrictions
       "default-src": ["'self'"],
@@ -62,19 +63,19 @@ app.use(
       // Scripts: self + jsDelivr + per-request nonce (no unsafe-inline)
       "script-src": [
         "'self'",
-        "https://cdn.jsdelivr.net",       // your CDN
+        "https://cdn.jsdelivr.net",
         (req, res) => `'nonce-${res.locals.nonce}'`
       ],
 
-      // Styles: self + jsDelivr + Google Fonts (no unsafe-inline)
+      // Styles: self + jsDelivr + Google Fonts + nonce
       "style-src": [
         "'self'",
-        "https://cdn.jsdelivr.net",       // if you load CSS from jsDelivr
-        "https://fonts.googleapis.com",   // Google Fonts CSS
+        "https://cdn.jsdelivr.net",
+        "https://fonts.googleapis.com",
         (req, res) => `'nonce-${res.locals.nonce}'`
       ],
 
-      // Images: self + data URLs (favicons, inline images)
+      // Images: self + data URLs
       "img-src": ["'self'", "data:"],
 
       // Fonts: self + Google Fonts static
@@ -83,24 +84,24 @@ app.use(
       // XHR/fetch/websockets: prod vs dev
       "connect-src": isProd
         ? ["'self'", "https:", "https://*.azurewebsites.net", "https://albanyjwparking.org"]
-        : ["'self'", "http://localhost:3000"],
-
-      // Optional: allow inline event handlers only via nonces (already covered)
-      // Optional: upgrade insecure requests (if you might link http assets)
-      // "upgrade-insecure-requests": []
+        : [
+            "'self'",
+            "http://localhost:3000",
+            // if you access your dev app via LAN/IP or HTTPS locally, add it here:
+            // "http://127.0.0.1:3000",
+            // "https://localhost:3000"
+          ],
     },
-    // Optional reporting (CSP Level 3):
     // reportOnly: false,
   })
 );
 
-
 // ---- Azure Key Vault ----
-const vaultName = 'ApiStorage';                       // your Key Vault name
+const vaultName = 'ApiStorage'; // your Key Vault name
 const vaultUrl  = `https://${vaultName}.vault.azure.net`;
 const credential    = new DefaultAzureCredential();
 const secretClient  = new SecretClient(vaultUrl, credential);
-const secretName    = 'kickboxBrowser';               // your secret name
+const secretName    = 'kickboxBrowser'; // your secret name
 
 async function loadKickboxKey(retries = 5) {
   let attempt = 0;
@@ -190,6 +191,19 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
   try {
     await loadKickboxKey();
     await initKickbox();
+
+    server.on('error', (err) => {
+      // Make bind errors crystal-clear in dev
+      if (err.code === 'EACCES') {
+        console.error(`❌ Permission denied binding to ${HOST}:${PORT}. On Windows, port 80 is often reserved by HTTP.sys/IIS. Set PORT=3000 or free port 80.`);
+      } else if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Address in use: ${HOST}:${PORT}. Another process is listening already.`);
+      } else {
+        console.error('❌ Server listen error:', err);
+      }
+      process.exit(1);
+    });
+
     server.listen(PORT, HOST, () => {
       console.log(`✅ Server running on http://${HOST}:${PORT}`);
     });

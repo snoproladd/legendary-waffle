@@ -12,6 +12,8 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-secrets": "^4.10.0",
+    "@azure/msal-common": "^14.16.1",
+    "@azure/msal-node": "^2.16.3",
     "bind": "^0.1.6",
     "body-parser": "^2.2.1",
     "build": "^0.1.4",
