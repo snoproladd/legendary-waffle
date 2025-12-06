@@ -149,6 +149,14 @@ app.get('/health', (req, res) => res.send('OK'));
 app.get('/',          (req, res) => res.render('index'));
 app.get('/email-pass',(req, res) => res.render('emailPass'));
 app.get('/nonProfile',(req, res) => res.render('nonProfile'));
+app.post('/submit-basic-info', (req, res) => {
+  res.redirect('/volunteerIn');
+});
+app.post('/submit-advanced-info', (req, res) => {
+  res.redirect('/volunteerIn');
+})
+app.get('/volunteerIn', (req, res) => res.render('volunteerIn'));
+
 
 app.get('/validate-email', async (req, res) => {
   const email = (req.query.email || '').toString().trim();

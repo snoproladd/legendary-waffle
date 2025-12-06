@@ -13,17 +13,18 @@
   </head>
   <body class="jumbo-contain d-flex justify-content-center align-items-center">
     <main class="jumbo-banner p-4 rounded shadow-lg bg-light" style="max-width: 400px;">
-      <h1 class="text-center mb-4">Create Your Profile</h1>
-        <form action="/submit-profile-info" method="POST">
-          <!-- Email Field -->
-          <div class="mb-3">
+      <h1 class="text-center mb-4">Enter Information</h1>
+        <form action="/submit-basic-info" method="POST">
+         <!--name field-->
+          <!-- <div class="mb-3">
             <label for ="first-name" class="form-label">First Name:<span class="asterix">*</span></label>
             <input type="text" id="first-name" name="first-name" class="form-control" placeholder="Enter your first name" required>
             <label for="last-name" class="form-label">Last Name:<span class="asterix">*</span></label>
             <input type="text" id="last-name" name="last-name" class="form-control" placeholder="Enter your last name" required>
             <label for="suffix" class="form-label">Suffix (if applicable)</label>
             <input type="text" id="suffix" name="suffix" class="form-control" placeholder="Enter your suffix">
-          </div>
+          </div> -->
+           <!-- Email Field -->
           <div class="mb-3">
             <label for="email" class="form-label">Email:<span class="asterix">*</span></label>
             <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required aria-describedby="email-status">
@@ -46,7 +47,7 @@
               <input type="password" id="confirm-password" name="confirm-password" class="form-control" placeholder="Confirm your password" required aria-describedby="passwords-matched-status">
               <div id="passwords-matched-status" class="status mt-2" role="status" aria-live="polite"></div>
           </div>-->
-          <button type="submit" class="btn btn-primary w-100">Submit</button>
+          <button type="submit" class="btn btn-primary w-100">Next</button>
         </form> 
   <p class="footnote"><span class="asterix">*</span> Indicates required fields</p>
   </main>
