@@ -1,14 +1,24 @@
-</main>
+
+</main> <!-- Ensure this matches the opening <main> in your layout -->
 
 <footer>
-  <a class='footer-text' href="https://www.vecteezy.com/">Vectors credits Vecteezy</a>
-  <% var year = new Date().getFullYear() %>
-  <p class='footer-text'>Copyright © <%= year %></p>
-  <p class='footer-text'><strong>Disclaimer:</strong>This website is not sponsored, created, or controlled by Jehovah's Witnesses or www.JW.org,<p class="footer-text">legally known as the Watch Tower Bible and Tract Society of Pennsylvania.</p></p>
+  <p class="footer-text">
+    <a class="footer-text" href="https://www.vecteezy.com/">Vectors credits Vecteezy</a>
+  </p>
+
+  <% const year = new Date().getFullYear(); %>
+  <p class="footer-text">Copyright © <%= year %></p>
+
+  <p class="footer-text">
+    <strong>Disclaimer:</strong>
+    This website is not sponsored, created, or controlled by Jehovah's Witnesses or www.JW.org,
+    legally known as the Watch Tower Bible and Tract Society of Pennsylvania.
+  </p>
 </footer>
 
-<script src="../index.ejs"></script>
+<!-- If you have client-side JS, reference the actual JS file under your domain -->
+<!-- Example: -->
+<!-- <script src="/static/js/main.js" defer></script> -->
 
 </body>
-
 </html>

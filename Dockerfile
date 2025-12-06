@@ -1,44 +1,25 @@
 
-# ---- Stage 1: Build ----
-FROM node:18-alpine AS build
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files first for caching
+# Install deps first for better layer caching
 COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Install all dependencies (including dev for build)
-RUN npm ci
-
-# Copy source code
+# Copy source
 COPY . .
 
-# No build step needed for Express/EJS, but keep placeholder
-RUN npm run build || echo "No build step"
-
-# ---- Stage 2: Production ----
-FROM node:18-alpine AS production
-
-WORKDIR /app
-
-# Copy only necessary files from build stage
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/index.js ./index.js
-COPY --from=build /app/views ./views
-COPY --from=build /app/public ./public
-COPY --from=build /app/types ./types
-
-# Set environment variables
+# Runtime env
 ENV NODE_ENV=production
 ENV PORT=80
 
-# Expose port
 EXPOSE 80
 
-# Health check (optional)
+# Alpine needs curl for healthcheck
+RUN apk add --no-cache curl
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+  CMD curl -fsS http://localhost:80/health || exit 1
 
-# Start the app
-CMD ["npm", "start"]
+# Run Node directly (cleaner than npm start in containers)
+CMD ["node", "index.js"]
