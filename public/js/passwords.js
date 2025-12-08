@@ -1,24 +1,26 @@
 
-// /js/passwords.js
 document.addEventListener('DOMContentLoaded', () => {
   let debounceId;
 
   // Elements
-  const form = document.querySelector('form[action="/submit-info"]');
+  const form =
+    document.querySelector('form[action="/submit-advanced-info"]') ||
+    document.querySelector('#account-form') ||
+    document.querySelector('form');
+
   const passwordInput        = document.querySelector('#password');
   const confirmPasswordInput = document.querySelector('#confirm-password');
   const statusDiv            = document.querySelector('#passwords-matched-status');
   const togglePasswordBtn    = document.querySelector('#togglePassword');
 
   // Try to use the actual submit button; fall back gracefully
-  // Note: your HTML currently has <button type="submit-newProfile"> which is not a valid submit type.
-  // Please change it to type="submit". The code below will still try to find a button if not changed.
   let submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   if (!submitBtn && form) {
     submitBtn = form.querySelector('button.btn.btn-primary');
   }
 
-  if (!form || !passwordInput || !confirmPasswordInput || !statusDiv) return;
+  // If inputs are missing, abort (but don't require 'form' to exist just to compare)
+  if (!passwordInput || !confirmPasswordInput || !statusDiv) return;
 
   // Accessibility: screen readers announce updates
   statusDiv.setAttribute('role', 'status');
@@ -59,30 +61,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (submitBtn) submitBtn.disabled = !enabled;
   }
 
-  // Core comparison logic, aligned with your formatting + debounce pattern
+  // Core comparison logic
   function comparePasswords() {
     const pwd  = passwordInput.value.trim();
     const conf = confirmPasswordInput.value.trim();
 
-    // If both empty → neutral
     if (pwd === '' && conf === '') {
       clearStates();
       setSubmitEnabled(false);
       return;
     }
 
-    // If confirm empty but password present → guidance
     if (pwd !== '' && conf === '') {
       clearStates();
       setSubmitEnabled(false);
       return;
     }
 
-    // Optional loading state (kept consistent with email script)
-    // You can comment this out if you don't want a spinner for local compare
-    // setStatusLoading();
-
-    // Final compare
     if (pwd === conf) {
       setStatusSuccess('✅ Passwords match');
       setSubmitEnabled(true);
@@ -92,15 +87,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Debounced handler to match the email script style
+  // Debounced handler
   function debouncedCompare() {
     clearTimeout(debounceId);
-    // Optional: show a lightweight "checking..." state during debounce
     setStatusLoading();
     debounceId = setTimeout(() => {
-      // Guard against stale values (not strictly necessary for local compare, but consistent with email style)
       comparePasswords();
-    }, 500);
+    }, 500); // or 1000ms if you prefer slower checks
   }
 
   // Wire up events (listen on both fields)
@@ -125,28 +118,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Optional: prevent submit if not matched (extra safety)
-  form.addEventListener('submit', (e) => {
-    const pwd  = passwordInput.value.trim();
-    const conf = confirmPasswordInput.value.trim();
+  // Only add a submit guard if the form exists
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      const pwd  = passwordInput.value.trim();
+      const conf = confirmPasswordInput.value.trim();
 
-    if (pwd === '' || conf === '') {
-      e.preventDefault();
-      setStatusError('Please complete both password fields.');
-      setSubmitEnabled(false);
-      return;
-    }
+      if (pwd === '' || conf === '') {
+        e.preventDefault();
+        setStatusError('Please complete both password fields.');
+        setSubmitEnabled(false);
+        return;
+      }
 
-    if (pwd !== conf) {
-      e.preventDefault();
-      setStatusError('Passwords do not match.');
-      setSubmitEnabled(false);
-      return;
-    }
-
-    // If you want to enforce a re-check just before submit:
-    // e.preventDefault();
-    // comparePasswords();
-    // if (statusDiv.classList.contains('success')) form.submit();
-  });
+      if (pwd !== conf) {
+        e.preventDefault();
+        setStatusError('Passwords do not match.');
+        setSubmitEnabled(false);
+        return;
+      }
+    });
+  }
 });

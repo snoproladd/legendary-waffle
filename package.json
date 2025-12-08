@@ -23,7 +23,8 @@
     "helmet": "^8.1.0",
     "jq": "^1.7.2",
     "kickbox": "^2.0.4",
-    "path-to-regexp": "^8.3.0"
+    "path-to-regexp": "^8.3.0",
+    "twilio": "^5.10.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

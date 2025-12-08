@@ -9,14 +9,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmStatus = document.querySelector('#confirm-email-status');
 
   const passwordsDiv = document.querySelector('#passwords');
-
- 
-
-const showPasswords = (show) => {
-  if (passwordsDiv) {
-    passwordsDiv.classList.toggle('d-none', !show);
+  confirmInput.addEventListener('keydown', (e) => {
+    
+  if (e.key === 'Tab' && !emailDeliverable) {
+    e.preventDefault();
+    emailInput.focus();
+    confirmStatus.textContent = 'Validate your email first.';
   }
-};
+  }) 
+
+
+function showPasswords(show) {
+  const passwordsDiv = document.querySelector('#passwords');
+  if (!passwordsDiv) return;
+
+  const shouldHide = !show;
+  passwordsDiv.classList.toggle('d-none', shouldHide);
+  passwordsDiv.hidden = shouldHide;
+  passwordsDiv.setAttribute('aria-hidden', String(shouldHide));
+
+  // Enable/disable interactive children
+  const interactive = passwordsDiv.querySelectorAll('input, select, textarea, button');
+  interactive.forEach(el => { el.disabled = shouldHide; });
+}
+
 
 
 if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
@@ -109,15 +125,13 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
         emailDeliverable = false;
         setStatusError(emailStatus, reason || 'Email may be risky or unknown.');
         setConfirmEnabled(false);
-        emailsMatch = false;
-        
+        emailsMatch = false;        
         showPasswords(false);
       } else {
         emailDeliverable = false;
         setStatusError(emailStatus, reason || 'Invalid email address.');
         setConfirmEnabled(false);
         emailsMatch = false;
-        
         showPasswords(false);
       }
 

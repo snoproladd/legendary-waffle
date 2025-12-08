@@ -50,6 +50,7 @@ app.use((req, res, next) => {
   next();
 });
 
+
 app.use(
   helmet.contentSecurityPolicy({
     useDefaults: true,
@@ -60,18 +61,18 @@ app.use(
       "object-src": ["'none'"],
       "frame-ancestors": ["'none'"],
 
-      // Scripts: self + jsDelivr + per-request nonce (no unsafe-inline)
+      // Scripts: self + jsDelivr + per-request nonce
       "script-src": [
         "'self'",
-        "https://cdn.jsdelivr.net",
+        "https://cdn.jsdelivr.net", // Bootstrap/JS libraries
         (req, res) => `'nonce-${res.locals.nonce}'`
       ],
 
       // Styles: self + jsDelivr + Google Fonts + nonce
       "style-src": [
         "'self'",
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
+        "https://cdn.jsdelivr.net", // Bootstrap CSS
+        "https://fonts.googleapis.com", // Google Fonts
         (req, res) => `'nonce-${res.locals.nonce}'`
       ],
 
@@ -81,15 +82,19 @@ app.use(
       // Fonts: self + Google Fonts static
       "font-src": ["'self'", "https://fonts.gstatic.com"],
 
-      // XHR/fetch/websockets: prod vs dev
+      // XHR/fetch/websockets: prod vs dev + Kickbox if needed
       "connect-src": isProd
-        ? ["'self'", "https:", "https://*.azurewebsites.net", "https://albanyjwparking.org"]
+        ? [
+            "'self'",
+            "https:",
+            "https://*.azurewebsites.net",
+            "https://albanyjwparking.org",
+            "https://api.kickbox.com" // only if client-side Kickbox calls happen
+          ]
         : [
             "'self'",
             "http://localhost:3000",
-            // if you access your dev app via LAN/IP or HTTPS locally, add it here:
-            // "http://127.0.0.1:3000",
-            // "https://localhost:3000"
+            "https://api.kickbox.com" // same note as above
           ],
     },
     // reportOnly: false,
@@ -100,48 +105,96 @@ app.use(
 const vaultName = 'ApiStorage'; // your Key Vault name
 const vaultUrl  = `https://${vaultName}.vault.azure.net`;
 const credential    = new DefaultAzureCredential();
-const secretClient  = new SecretClient(vaultUrl, credential);
-const secretName    = 'kickboxBrowser'; // your secret name
+const secretClient = new SecretClient(vaultUrl, credential);
 
-async function loadKickboxKey(retries = 5) {
+// Secret names (exactly as they exist in KV)
+const secretNameKickbox = 'kickboxBrowser';
+const secretNameTwiSid  = 'TwilioSID';
+const secretNameTwiTok  = 'TwilioAuthToken'
+
+
+// Load API keys and data
+
+async function delay(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
+async function loadSecrets(retries = 5) {
   let attempt = 0;
-  const delay = ms => new Promise(res => setTimeout(res, ms));
   while (true) {
     try {
-      const secret = await secretClient.getSecret(secretName);
-      process.env.KICKBOX_API_KEY = secret.value;
-      console.log('✅ Kickbox API key loaded from Key Vault.');
+      const [kb, sid, tok] = await Promise.all([
+        secretClient.getSecret(secretNameKickbox),
+        secretClient.getSecret(secretNameTwiSid),
+        secretClient.getSecret(secretNameTwiTok),
+      ]);
+
+      process.env.KICKBOX_API_KEY       = kb.value;
+      process.env.TWILIO_ACCOUNT_SID    = sid.value;
+      process.env.TWILIO_AUTH_TOKEN     = tok.value;
+
+      console.log('✅ All secrets loaded from Key Vault.');
       return;
     } catch (err) {
       attempt++;
-      console.error(`❌ Failed to load Kickbox key (attempt ${attempt}): ${err.message}`);
+      console.error(`❌ Failed to load secrets (attempt ${attempt}): ${err.message}`);
       if (attempt >= retries) throw err;
       await delay(Math.min(2000 * attempt, 10000)); // simple backoff
     }
   }
 }
 
-// ---- Kickbox (ESM/CJS-safe init) ----
-let kickboxClient;
+// ---- Twilio init (ESM/CJS-safe init) ----
 
-async function initKickbox() {
-  if (!kickboxClient) {
-    const mod = await import('kickbox');
-    const kbRoot = mod.default ?? mod; // works for both CJS and ESM
-    kickboxClient = kbRoot.client(process.env.KICKBOX_API_KEY).kickbox();
-    console.log('✅ Kickbox client initialized.');
+
+let twClient;
+
+async function initTwilio() {
+  if (!twClient) {
+    // Works for both CommonJS and ESM builds of the package
+    const mod    = await import('twilio');
+    const twRoot = mod.default ?? mod;
+    twClient     = twRoot(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('✅ Twilio client initialized.');
   }
-  return kickboxClient;
-}
+  return twClient;
+};
 
-async function verifyEmail(email) {
-  const kb = await initKickbox();
-  return new Promise((resolve, reject) => {
-    kb.verify(email, (err, response) => {
-      if (err) return reject(err);
-      resolve(response.body);
+// ---- Kickbox: call API directly via Node's built-in fetch ----
+async function verifyEmail(email, { timeoutMs = 8000 } = {}) {
+  if (!process.env.KICKBOX_API_KEY) {
+    throw new Error('KICKBOX_API_KEY missing');
+  }
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const url = new URL('https://api.kickbox.com/v2/verify');
+    url.searchParams.set('email', email);
+    url.searchParams.set('apikey', process.env.KICKBOX_API_KEY);
+
+    const resp = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
     });
-  });
+
+    if (!resp.ok) {
+      throw new Error(`Kickbox API error ${resp.status} ${resp.statusText}`);
+    }
+
+    const data = await resp.json(); // { result, reason, ... }
+    return data;
+  } catch (err) {
+    // If aborted, Node throws DOMException: AbortError
+    if (err.name === 'AbortError') {
+      throw new Error('Kickbox API request timed out');
+    }
+    throw err;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 // ---- Routes ----
@@ -157,10 +210,13 @@ app.post('/submit-advanced-info', (req, res) => {
 })
 app.get('/volunteerIn', (req, res) => res.render('volunteerIn'));
 
-
+app.get('/validate-phone', (req, res) => {
+  const phone = (req.query.phone || '').toString().trim();
+  if (!phone) return res.status(400).json({error: 'Phone number required'});
+})
 app.get('/validate-email', async (req, res) => {
   const email = (req.query.email || '').toString().trim();
-  if (!email) return res.status(400).json({ error: 'Email required' });
+  if (!email) return res.status(400).json({ valid: false, reason: 'Please enter a phone number'});
 
   // Block jwpub.org domain
   if (email.toLowerCase().endsWith('@jwpub.org')) {
@@ -197,8 +253,8 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
 // ---- Start after dependencies ready ----
 (async () => {
   try {
-    await loadKickboxKey();
-    await initKickbox();
+    await loadSecrets();
+    await initTwilio();
 
     server.on('error', (err) => {
       // Make bind errors crystal-clear in dev
