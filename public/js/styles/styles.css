@@ -1,0 +1,168 @@
+/* -------------------- Fonts -------------------- */
+.Archivo {
+  font-family: "Archivo", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings: "wdth" 100;
+}
+
+.georama {
+  font-family: "Georama", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: medium;
+  font-variation-settings: "wdth" 100;
+}
+
+/* -------------------- CSS Variables -------------------- */
+:root {
+  --Primary: #1e3a8a;
+  --Secondary: #2563eb;
+  --Accent: #f59e0b;
+  --Background: #f9fafb;
+  --TextDark: #111827;
+  --TextLight: #ffffff;
+
+  /* Responsive font sizes using clamp(min, preferred, max) */
+  --fs-h1: clamp(2rem, 5vw, 5rem);
+  --fs-h2: clamp(1.75rem, 4vw, 2.75rem);
+  --fs-h3: clamp(1.5rem, 3vw, 2rem);
+  --fs-body: clamp(1rem, 2vw, 1.125rem);
+}
+
+/* -------------------- Body & Background -------------------- */
+body {
+  height: 100dvh;
+  background: #99C3F3;
+  background: linear-gradient(59deg, var(--TextDark), var(--TextLight) 50%);
+  background-attachment: fixed;
+  font-family: 'Archivo', sans-serif;
+  color: var(--TextDark);
+}
+
+/* -------------------- Jumbo Sections -------------------- */
+.jumbo-contain {
+  background-image: url('../images/parking-lot.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  height: inherit;
+}
+
+.jumbo-banner {
+  border-radius: 20px;
+  border-style: hidden;
+  opacity: 75%;
+  background-color: rgba(248, 249, 250);
+}
+.custom-banner-width{
+  max-width: 450px;
+}
+.jumbo-descrip {
+  border-radius: 20px;
+  border-style: hidden;
+  background-color: var(--TextLight);
+  opacity: 85%;
+}
+
+/* -------------------- Header -------------------- */
+.header {
+  border: var(--Primary);
+  border-radius: 10px;
+  border-style: solid;
+  text-align: center;
+  color: var(--TextDark);
+  background-color: var(--Primary);
+}
+
+/* -------------------- Typography -------------------- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Georama', sans-serif;
+  color: var(--Primary);
+}
+
+h1 { font-weight: 700; }
+h2, h3 { font-weight: 600; }
+h4, h5, h6 { font-weight: 500; }
+
+p, li {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 400;
+  color: var(--TextDark);
+}
+
+strong, b {
+  font-weight: 500;
+}
+
+/* -------------------- Feature Showcase -------------------- */
+.feature-showcase {
+  background-color: var(--Background);
+  opacity: 75%;
+  border: hidden;
+  border-radius: 5px;
+  padding: 4px;
+  font-weight: 700;
+}
+
+.feature-icon-small {
+  background-color: transparent;
+  width: 100px;
+}
+
+.feature-icon {
+  width: 100px;
+  background-color: transparent;
+}
+
+.footer-text {
+  background-color: var(--Background);
+  opacity: 75%;
+  padding-left: 10px;
+  padding-bottom: 3px;
+  width: fit-content;
+  margin: 0;
+}
+
+/* -------------------- Form & Validation -------------------- */
+.status {
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.status.loading {
+  color: #555;
+}
+
+.status.success {
+  color: green;
+  font-weight: 600;
+}
+
+.status.error {
+  color: red;
+  font-weight: 600;
+}
+
+/* Spinner inherits Bootstrap styles */
+.spinner-border {
+  vertical-align: middle;
+}
+.alert {
+  transition: opacity 0.3s ease-in-out;
+}
+.form-label{
+  font-weight: 600;
+  text-align: left;
+  text-wrap: wrap;
+}
+.asterix{
+  color: red!important;
+}
+
+
+/* -------------------- Form Visibility -------------------- */
+.is-hidden {
+  display: none !important;
+}

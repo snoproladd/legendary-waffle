@@ -94,7 +94,8 @@ app.use(
         : [
             "'self'",
             "http://localhost:3000",
-            "https://api.kickbox.com" // same note as above
+            "https://api.kickbox.com",
+            "https://cdn.jsdelivr.net" // same note as above
           ],
     },
     // reportOnly: false,

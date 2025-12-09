@@ -26,3 +26,9 @@ docker-compose.override.yml
 
 *.swp
 *.tmp
+
+public/js/*.js.map
+
+*.txt
+
+*.sh

@@ -4,12 +4,14 @@
   "description": "Express app with Kickbox email validation and Azure Key Vault integration",
   "main": "index.js",
   "type": "module",
-  "scripts": {
+
+"scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "build": "echo 'No build step needed' || exit 0"
+    "dev": "concurrently -n client,server -c \"magenta,cyan\" \"vite\" \"nodemon index.js\"",
+    "build": "vite build"
   },
-  "dependencies": {
+
+"dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-secrets": "^4.10.0",
     "@azure/msal-common": "^14.16.1",
@@ -21,12 +23,14 @@
     "ejs": "^3.1.10",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "imask": "^7.6.1",
     "jq": "^1.7.2",
     "kickbox": "^2.0.4",
     "path-to-regexp": "^8.3.0",
     "twilio": "^5.10.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "vite": "^7.2.7"
   }
 }
