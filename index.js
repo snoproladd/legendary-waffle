@@ -210,13 +210,49 @@ app.post('/submit-advanced-info', (req, res) => {
 })
 app.get('/volunteerIn', (req, res) => res.render('volunteerIn'));
 
-app.get('/validate-phone', (req, res) => {
-  const phone = (req.query.phone || '').toString().trim();
-  if (!phone) return res.status(400).json({error: 'Phone number required'});
-})
+
+// Requires initTwilio() and TWILIO_* secrets already loaded
+app.get('/validate-phone', async (req, res) => {
+  try {
+    const raw = (req.query.phone || '').toString();
+    const digits = raw.replace(/\D+/g, '');
+    if (!digits) {
+      return res.status(400).json({ error: 'Phone number required' });
+    }
+    const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+
+    const tw = await initTwilio();
+    // Twilio Lookup v2 – request carrier data
+    const lookup = await tw.lookups.v2
+      .phoneNumbers(e164)
+      .fetch({ type: ['carrier'] });
+
+    const carrierType = lookup?.carrier?.type || ''; // 'mobile' | 'landline' | 'voip' | ''
+    const smsCapable = carrierType === 'mobile' || carrierType === 'voip';
+
+    return res.status(200).json({
+      valid: true,
+      normalized: e164,
+      smsCapable,
+      carrierType,
+      validation_errors: ''
+    });
+  } catch (err) {
+    // Twilio returns 404 for invalid numbers
+    if (err.status === 404) {
+      return res.status(200).json({
+        valid: false,
+        validation_errors: 'Invalid or unrecognized phone number.'
+      });
+    }
+    console.error('Twilio Lookup error:', err);
+    return res.status(500).json({ error: 'Lookup failed' });
+  }
+});
+
 app.get('/validate-email', async (req, res) => {
   const email = (req.query.email || '').toString().trim();
-  if (!email) return res.status(400).json({ valid: false, reason: 'Please enter a phone number'});
+  if (!email) return res.status(400).json({ valid: false, reason: 'Please enter an email address' });
 
   // Block jwpub.org domain
   if (email.toLowerCase().endsWith('@jwpub.org')) {
