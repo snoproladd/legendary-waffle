@@ -11,11 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Georama:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   </head>
-  <body class="jumbo-contain d-flex justify-content-center align-items-center">
-    <main class="jumbo-banner p-4 rounded shadow-lg bg-light">  
-      <section id="contact-info"> 
+ <body class="min-vh-100 d-flex justify-content-center align-items-center bg-body-tertiary">
+  <main class="container body-container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-10 col-lg-8 form-entry">
+        <!-- Banner/Card replacement for jumbotron -->
+        <section id="contact-info" class="card shadow-lg">
+          <header class="card-header text-center">
         <h1 class="text-center mb-4">Contact Information</h1>
-          <form action="/submit
+          <form action="/submit">
             <!-- Name Fields -->
             <div class="mb-3">
               <label for="first-name" class="form-label">First Name:<span class="asterix">*</span></label>
@@ -61,7 +65,7 @@
             <!-- <div class="row row-cols-1 row-cols-md-2 align-items-md-center"> -->
             <div id="submit-status" class="status mt-2" role="status" aria-live="polite"></div>
             <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Submit</button>
-          <!-- </form> -->
+          </form>
       </section>
   <p class="footnote"><span class="asterix">*</span> Indicates required fields</p>
   </main>
