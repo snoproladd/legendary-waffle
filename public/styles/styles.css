@@ -164,3 +164,18 @@ strong, b {
 .is-hidden {
   display: none !important;
 }
+
+
+/* styles.css */
+body.bg-body-tertiary {
+  /* uses Bootstrap 5 variable */
+  background-color: var(--bs-body-bg);
+}
+
+.asterix {
+  color: var(--bs-danger);
+  margin-left: 0.25rem;
+}
+.form-entry{
+  max-width: 400px;
+}
