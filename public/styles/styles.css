@@ -179,3 +179,54 @@ body.bg-body-tertiary {
 .form-entry{
   max-width: 400px;
 }
+
+.error-page {
+            min-height: 100vh;
+            background: linear-gradient(59deg, var(--TextDark), var(--TextLight) 50%);
+        }
+
+        .error-container {
+            max-width: 600px;
+        }
+
+        .error-code {
+            font-size: 12rem;
+            font-weight: 900;
+            background: var(--TextDark);
+            color: var(--TextLight);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s infinite;
+        }
+
+        .error-message {
+            color:var(--TextDark);
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .btn-glass {
+            background: var(--Secondary);
+            backdrop-filter: blur(10px);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-glass:hover {
+            background: var(--Secondary);
+            opacity: 75%;
+            color: white;
+        }

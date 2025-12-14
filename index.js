@@ -269,6 +269,16 @@ app.get('/validate-email', async (req, res) => {
   }
 });
 
+// ---- 404 handler ----
+app.use((req, res, next) => {
+    // Set the HTTP status code to 404
+    res.status(404);
+    
+    // Render the 404 EJS view
+    res.render('404', { url: req.originalUrl });
+});
+
+
 // ---- Server & graceful shutdown ----
 const server = http.createServer(app);
 
