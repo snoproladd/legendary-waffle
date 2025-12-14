@@ -1,27 +1,37 @@
 <%- include('partials/header.ejs') %>
-<section id="jumbotron">
-    <div class="my-1"> 
-        <div class="jumbo-contain p-5 text-center bg-body-tertiary"> 
-            <div class="container py-5"> 
-                <h1 class="text-body-emphasis text jumbo-banner">Albany Regional Convention of Jehovah's Witnesses</h1> 
-                <div class="p-5 text-center bg-body-tertiary jumbo-descrip">
-                    <div class="container py-5">
-                        <h1 class="text-body-emphasis">Welcome, Convention Volunteers!</h1>
-                        <p class="col-lg-8 mx-auto lead">Thank you for your willingness to serve in the Parking Department at the Albany Regional Convention of Jehovah's Witnesses. Please use this site to enter your information, and to access schedules, instructions, and updates.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+
+
+<section id="hero" class="bg-body-tertiary ">
+  <div class="container vh-50">
+    <div class="hero-text-contain d-flex flex-column text-center align-items-center justify-content-between h-100 ">
+      <h1 class="text-body-emphasis hero-heading p-3">
+        Albany Regional Convention of Jehovah's Witnesses
+      </h1>
+
+      <h2 class="mt-4 text-body-emphasis hero-subheading p-3">
+        Welcome, Convention Volunteers!
+      </h2>
+
+      <p class="lead mt-4 hero-subheading p-3">
+        Thank you for your willingness to serve in the Parking Department at the
+        Albany Regional Convention of Jehovah's Witnesses. Please use this site to
+        enter your information, and to access schedules, instructions, and updates.
+      </p>
     </div>
+  </div>
 </section>
+
+
+
 <section id="features">
 <div class="container px-4 py-5">
     <!-- <h2 class="pb-2 border-bottom">Site Features</h2> -->
-    <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 py-5">
+    <div class="row row-cols-1 row-cols-md-2 align-items-md-center g-5 p-2 py-5">
         <div class="col d-flex flex-column align-items-start gap-2">
             <h2 class="fw-bold text-body-emphasis">Create a User Profile</h2>
             <p class="text-body-secondary feature-showcase">To get the most from this site please create a profile. Without a profile you will still be able to volunteer, but you will not have access to crew schedule, assignments, or other information.</p>
-            <div class = "row flex-row gap-3 row-cols-auto">
+            <div class = "row flex-row gap-1 row-cols-auto m-1 justify-content-between">
                 <a href="/email-pass" class="btn btn-primary btn-lg">Create Profile</a>
                 <a href="/enter-info" class="btn btn-secondary btn-lg">Enter Volunteer Info Only</a>
             </div>  

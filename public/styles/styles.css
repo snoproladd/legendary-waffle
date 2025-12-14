@@ -42,26 +42,54 @@ body {
 }
 
 /* -------------------- Jumbo Sections -------------------- */
-.jumbo-contain {
+
+.bg-body-tertiary {
   background-image: url('../images/parking-lot.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  height: inherit;
+  /* remove: height: inherit; */
 }
 
-.jumbo-banner {
-  border-radius: 20px;
-  border-style: hidden;
+
+#hero {
+  display: flex;
+  align-items: center;      /* vertical center */
+  justify-content: center;  /* horizontal center */
+         /* comfortable viewport height */
+  padding: 3rem 0;          /* breathing room (matches py-5 idea) */
+}
+
+
+.hero-heading,
+.hero-subheading {
+  background-color: var(--TextLight);
   opacity: 75%;
-  background-color: rgba(248, 249, 250);
+  width: 75%;
+  margin-left: auto;
+  margin-right: auto;   /* centers the block horizontally */
+  border-radius: 10px;
+  border-style: hidden;
 }
 
-.jumbo-descrip {
+
+
+
+
+.hero-text-contain {
+  width: 100%;
+  text-align: center;
+  height: 100%;
+}
+
+
+
+.hero-subheading {
+  width: 66%;
   border-radius: 20px;
   border-style: hidden;
   background-color: var(--TextLight);
-  opacity: 85%;
+  opacity: 75%;
 }
 
 /* -------------------- Header -------------------- */
@@ -72,6 +100,9 @@ body {
   text-align: center;
   color: var(--TextDark);
   background-color: var(--Primary);
+}
+.header-link{
+  font-size: 16pt;
 }
 
 /* -------------------- Typography -------------------- */
@@ -92,6 +123,11 @@ p, li {
 
 strong, b {
   font-weight: 500;
+}
+.btn{
+  font-size: 15pt;
+  padding:5px;
+  font-weight: 300;
 }
 
 /* -------------------- Feature Showcase -------------------- */
@@ -166,11 +202,11 @@ strong, b {
 }
 
 
-/* styles.css */
+/* styles.css
 body.bg-body-tertiary {
   /* uses Bootstrap 5 variable */
-  background-color: var(--bs-body-bg);
-}
+ /* background-color: var(--bs-body-bg);} */
+ 
 
 .asterix {
   color: var(--bs-danger);
@@ -178,55 +214,5 @@ body.bg-body-tertiary {
 }
 .form-entry{
   max-width: 400px;
+  opacity: 75%;
 }
-
-.error-page {
-            min-height: 100vh;
-            background: linear-gradient(59deg, var(--TextDark), var(--TextLight) 50%);
-        }
-
-        .error-container {
-            max-width: 600px;
-        }
-
-        .error-code {
-            font-size: 12rem;
-            font-weight: 900;
-            background: var(--TextDark);
-            color: var(--TextLight);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: pulse 2s infinite;
-        }
-
-        .error-message {
-            color:var(--TextDark);
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.05);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .btn-glass {
-            background: var(--Secondary);
-            backdrop-filter: blur(10px);
-            color: white;
-            transition: all 0.3s ease;
-        }
-
-        .btn-glass:hover {
-            background: var(--Secondary);
-            opacity: 75%;
-            color: white;
-        }
