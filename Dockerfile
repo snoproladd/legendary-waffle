@@ -43,4 +43,4 @@ RUN printf "#!/bin/sh\nset -e\n/usr/sbin/sshd -D -f /home/etc/ssh/sshd_config -p
 
 # Run the shell script directly (do not pass it to `node`)
 ENTRYPOINT ["/home/startup.sh"]
-``
+
