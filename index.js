@@ -251,6 +251,11 @@ app.get('/validate-email', async (req, res) => {
   }
 });
 
+app.get('/whoami', async (req,res) => {
+  try { const x = await whoAmI(); res.json(x || {}); }
+  catch(e) { res.status(500).json({error: String(e)}) }
+});
+
 // ---- 404 handler ----
 app.use((req, res, next) => {
     // Set the HTTP status code to 404
