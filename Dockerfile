@@ -42,4 +42,5 @@ set -e
 exec node index.js
 SH
 RUN chmod +x /home/startup.sh
+CMD [ "/home/startup/startup.sh" ]
 
