@@ -39,8 +39,5 @@ RUN tee /home/startup.sh >/dev/null <<'SH'
 #!/bin/sh
 set -e
 /usr/sbin/sshd -D -f /home/etc/ssh/sshd_config -p 2222 &
-exec node index.js
-SH
-RUN chmod +x /home/startup.sh
-CMD ["/home/startup.sh"]
+CMD ["node", "index.js"]
 
