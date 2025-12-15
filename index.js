@@ -27,7 +27,7 @@ if (typeof globalThis.crypto === 'undefined') {
 
 // ---- Basics ----
 const isProd = process.env.NODE_ENV === 'production';
-const PORT = Number(process.env.PORT ?? (isProd ? 8080 : 3000));
+const PORT = Number(process.env.PORT ?? (isProd ? 80 : 3000));
 const HOST = '0.0.0.0';
 
 const __filename = fileURLToPath(import.meta.url);
