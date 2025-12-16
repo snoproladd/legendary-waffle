@@ -1,45 +1,35 @@
 
-FROM node:24-trixie-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
-# Install deps first for better layer caching
+# Install deps first
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Copy source
 COPY . .
 
-# ---------- SSH enablement for App Service custom containers ----------
-# 1) Install curl (for healthcheck) and openssh-server (for SSH)
+# Runtime tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# 2) Create directories for sshd (App Service expects config & keys under /home)
-RUN mkdir -p /home/etc/ssh
+# Put sshd_config in image, not in /home
+RUN printf "Port 2222\nListenAddress 0.0.0.0\nProtocol 2\nHostKey /home/etc/ssh/ssh_host_rsa_key\nPermitRootLogin prohibit-password\nPasswordAuthentication no\nChallengeResponseAuthentication no\nUsePAM no\nAllowTcpForwarding yes\nGatewayPorts no\nX11Forwarding no\nSubsystem sftp /usr/lib/openssh/sftp-server\n" > /etc/ssh/sshd_config
 
-# 3) Provide a strict sshd_config (port 2222, no password auth)
-#    NOTE: On Debian, sftp-server lives in /usr/lib/openssh/
-RUN printf "Port 2222\nListenAddress 0.0.0.0\nProtocol 2\nHostKey /home/etc/ssh/ssh_host_rsa_key\nPermitRootLogin prohibit-password\nPasswordAuthentication no\nChallengeResponseAuthentication no\nUsePAM no\nAllowTcpForwarding yes\nGatewayPorts no\nX11Forwarding no\nSubsystem sftp /usr/lib/openssh/sftp-server\n" > /home/etc/ssh/sshd_config
-
-# 4) Generate host keys (kept in /home to survive App Service restarts)
-RUN ssh-keygen -t rsa -b 4096 -f /home/etc/ssh/ssh_host_rsa_key -N ""
-
-# Runtime env
+# App Service injects PORT; use 8080 default
 ENV NODE_ENV=production
+ENV PORT=8080
 
 # Document ports
-EXPOSE 80 2222
+EXPOSE 8080 2222
 
-# Healthcheck (unchanged; uses ${PORT})
+# Healthcheck (your app serves GET /health already)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS "http://localhost:${PORT}/health" || exit 1
 
-# Startup script: launch sshd then the Node app
-RUN printf "#!/bin/sh\nset -e\n/usr/sbin/sshd -D -f /home/etc/ssh/sshd_config -p 2222 &\nexec node index.js\n" > /home/startup.sh \
-    && chmod +x /home/startup.sh
+# Startup script under image path (not /home)
+RUN printf "#!/bin/sh\nset -e\n# Ensure runtime and key dirs\nmkdir -p /run/sshd\nchmod 0755 /run/sshd\nmkdir -p /home/etc/ssh\n# Generate host key into /home (persisted)\nif [ ! -f /home/etc/ssh/ssh_host_rsa_key ]; then ssh-keygen -t rsa -b 4096 -f /home/etc/ssh/ssh_host_rsa_key -N \"\"; fi\n# Start sshd in background using image config\n/usr/sbin/sshd -D -f /etc/ssh/sshd_config -p 2222 &\n# Start Node app bound to process.env.PORT\nexec node index.js\n" > /usr/local/bin/startup.sh && chmod +x /usr/local/bin/startup.sh
 
-# Run the shell script directly (do not pass it to `node`)
-ENTRYPOINT ["/home/startup.sh"]
-
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
