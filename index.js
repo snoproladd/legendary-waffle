@@ -8,6 +8,8 @@ import { dirname } from 'path';
 import { DefaultAzureCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
 import crypto from 'crypto';
+import dbRoutes from './routes/volunteers.js'
+import {exec} from './lib/dbSync.js'
 
 function log(...args) {
   console.log(`[${new Date().toISOString()}] [index.js]`, ...args);
@@ -43,6 +45,8 @@ app.use((req, res, next) => {
     next();
   }
 });
+
+app.use('/api', dbRoutes);
 
 
 app.use(express.urlencoded({ extended: true }));
@@ -255,6 +259,16 @@ app.get('/whoami', async (req,res) => {
   try { const x = await whoAmI(); res.json(x || {}); }
   catch(e) { res.status(500).json({error: String(e)}) }
 });
+
+app.get('/db-test', async (req, res) => {
+  try {
+    const tsql = "SELECT DB_NAME() AS db, SUSER_SNAME() AS login, USER_NAME() AS dbuser;";
+    const result = await exec(tsql, (r) => {});
+    res.json({ success: true, result });
+   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }})
+
 
 // ---- 404 handler ----
 app.use((req, res, next) => {

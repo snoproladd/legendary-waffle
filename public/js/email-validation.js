@@ -97,7 +97,7 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
       // Block domain
       if (requestedEmail.toLowerCase().endsWith('@jwpub.org')) {
         emailDeliverable = false;
-        setStatusError(emailStatus, 'Emails from @jwpub.org are not allowed.');
+        setStatusError(emailStatus, reason ||'Emails from @jwpub.org are not allowed.');
         setConfirmEnabled(false);
         emailsMatch = false;
         showPasswords(false);
@@ -106,7 +106,7 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
 
       if (!res.ok) {
         emailDeliverable = false;
-        setStatusError(emailStatus, data.error || 'Server error. Please try again later.');
+        setStatusError(emailStatus,reason, data.error || 'Server error. Please try again later.');
         setConfirmEnabled(false);
         emailsMatch = false;
         
@@ -120,6 +120,7 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
       if (result === 'deliverable') {
         emailDeliverable = true;
         setStatusSuccess(emailStatus, '✅ Valid email');
+        emailStatus.dataset.deliverable = 'true';
         setConfirmEnabled(true); // user can now confirm
       } else if (result === 'risky' || result === 'unknown') {
         emailDeliverable = false;
@@ -139,7 +140,7 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
       evaluateConfirmMatch();
     } catch (e) {
       emailDeliverable = false;
-      setStatusError(emailStatus, 'Error validating email. Please try again later.');
+      setStatusError(emailStatus, reason, 'Error validating email. Please try again later.');
       setConfirmEnabled(false);
       emailsMatch = false;
       
