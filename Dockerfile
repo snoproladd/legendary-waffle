@@ -28,7 +28,6 @@ RUN ssh-keygen -t rsa -b 4096 -f /home/etc/ssh/ssh_host_rsa_key -N ""
 
 # Runtime env
 ENV NODE_ENV=production
-ENV PORT=80
 
 # Document ports
 EXPOSE 80 2222
