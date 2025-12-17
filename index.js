@@ -9,7 +9,7 @@ import { DefaultAzureCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
 import crypto from 'crypto';
 import dbRoutes from './routes/volunteers.js'
-import {exec} from './lib/dbSync.js'
+import {exec, insertEmailPass} from './lib/dbSync.js'
 
 function log(...args) {
   console.log(`[${new Date().toISOString()}] [index.js]`, ...args);
@@ -202,9 +202,20 @@ app.get('/nonProfile',(req, res) => res.render('nonProfile'));
 app.post('/submit-basic-info', (req, res) => {
   res.redirect('/volunteerIn');
 });
-app.post('/submit-advanced-info', (req, res) => {
+app.post('/submit-advanced-info', async (req, res) => {
+  const { email, password } = req.body;
+  try{
+    const row = await insertEmailPass(email, password);
+    if(!row){
+      return res.status(409).send('Email already registered.');
+    }
+  
   res.redirect('/volunteerIn');
+}catch(err){
+  res.status(500).send('Registration failed: ' + err.message)
+}
 });
+
 app.get('/volunteerIn', (req, res) => res.render('volunteerIn'));
 
 app.get('/validate-phone', async (req, res) => {
