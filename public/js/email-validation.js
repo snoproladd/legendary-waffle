@@ -73,9 +73,7 @@ if (!form || !emailInput || !emailStatus || !confirmInput || !confirmStatus) {
       </div>`;
   };
 
-  
-
-  const setConfirmEnabled = (enabled) => { confirmInput.disabled = !enabled; };
+ const setConfirmEnabled = (enabled) => { confirmInput.disabled = !enabled; };
 
   // Gates
   let emailDeliverable = false;

@@ -9,7 +9,10 @@ import { DefaultAzureCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
 import crypto from 'crypto';
 import dbRoutes from './routes/volunteers.js'
-import {exec, insertEmailPass} from './lib/dbSync.js'
+import { exec, insertEmailPass, insertNameAndPhone, namePhoneExists } from './lib/dbSync.js'
+import session from 'express-session'
+import cookieParser from 'cookie-parser'
+import csurf from 'csurf'
 
 function log(...args) {
   console.log(`[${new Date().toISOString()}] [index.js]`, ...args);
@@ -33,10 +36,11 @@ const PORT = Number(process.env.PORT ?? (isProd ? 80 : 3000));
 const HOST = '0.0.0.0';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const __dirname = dirname(__filename);
 
 const app = express();
 
+// --- Early middleware (before async secrets/session) ---
 app.use((req, res, next) => {
   const h = (req.hostname || "").toLowerCase();
   if (h === "albanyjwparking.org") {
@@ -45,92 +49,48 @@ app.use((req, res, next) => {
     next();
   }
 });
-
-app.use('/api', dbRoutes);
-
-
-app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use((req, res, next) => {
-  res.locals.nonce = crypto.randomBytes(16).toString('base64');
-  next();
-});
-
-app.use(
-  helmet.contentSecurityPolicy({
-    useDefaults: true,
-    directives: {
-      "default-src": ["'self'"],
-      "base-uri": ["'self'"],
-      "object-src": ["'none'"],
-      "frame-ancestors": ["'none'"],
-      "script-src": [
-        "'self'",
-        "https://cdn.jsdelivr.net",
-        (req, res) => `'nonce-${res.locals.nonce}'`
-      ],
-      "style-src": [
-        "'self'",
-        "https://cdn.jsdelivr.net",
-        "https://fonts.googleapis.com",
-        (req, res) => `'nonce-${res.locals.nonce}'`
-      ],
-      "img-src": ["'self'", "data:"],
-      "font-src": ["'self'", "https://fonts.gstatic.com"],
-      "connect-src": isProd
-        ? [
-            "'self'",
-            "https:",
-            "https://*.azurewebsites.net",
-            "https://albanyjwparking.org",
-            "https://api.kickbox.com"
-          ]
-        : [
-            "'self'",
-            "http://localhost:3000",
-            "https://api.kickbox.com",
-            "https://cdn.jsdelivr.net"
-          ],
-    },
-  })
-);
 
 // ---- Azure Key Vault ----
 const vaultName = 'ApiStorage';
-const vaultUrl  = `https://${vaultName}.vault.azure.net`;
-const credential    = new DefaultAzureCredential();
+const vaultUrl = `https://${vaultName}.vault.azure.net`;
+const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(vaultUrl, credential);
 
 const secretNameKickbox = 'kickboxBrowser';
-const secretNameTwiSid  = 'TwilioSID';
-const secretNameTwiTok  = 'TwilioAuthToken';
+const secretNameTwiSid = 'TwilioSID';
+const secretNameTwiTok = 'TwilioAuthToken';
 const secretNameSqlServer = 'AZSQLServer';
 const secretNameSqlDb = 'AZSQLDB';
 const secretNameSqlPort = 'AZSQLPort'; // if you store port as a secret
+const secretNameCookie = 'CookieSession';
 
 async function loadSecrets(retries = 5) {
   let attempt = 0;
   while (true) {
     try {
       log('Loading secrets from Key Vault...');
-      const [kb, sid, tok, sqlServer, sqlDb, sqlPort] = await Promise.all([
-        secretClient.getSecret(secretNameKickbox),
-        secretClient.getSecret(secretNameTwiSid),
-        secretClient.getSecret(secretNameTwiTok),
-        secretClient.getSecret(secretNameSqlServer),
-        secretClient.getSecret(secretNameSqlDb),
-        secretClient.getSecret(secretNameSqlPort).catch(() => ({ value: undefined }))
-      ]);
-      process.env.KICKBOX_API_KEY       = kb.value;
-      process.env.TWILIO_ACCOUNT_SID    = sid.value;
-      process.env.TWILIO_AUTH_TOKEN     = tok.value;
-      process.env.AZSQLServer           = sqlServer.value;
-      process.env.AZSQLDB               = sqlDb.value;
+      const [kb, sid, tok, sqlServer, sqlDb, SessionCookie, sqlPort] =
+        await Promise.all([
+          secretClient.getSecret(secretNameKickbox),
+          secretClient.getSecret(secretNameTwiSid),
+          secretClient.getSecret(secretNameTwiTok),
+          secretClient.getSecret(secretNameSqlServer),
+          secretClient.getSecret(secretNameSqlDb),
+          secretClient.getSecret(secretNameCookie),
+          secretClient.getSecret(secretNameSqlPort).catch(() => ({ value: undefined })),
+        ]);
+      process.env.KICKBOX_API_KEY = kb.value;
+      process.env.TWILIO_ACCOUNT_SID = sid.value;
+      process.env.TWILIO_AUTH_TOKEN = tok.value;
+      process.env.AZSQLServer = sqlServer.value;
+      process.env.AZSQLDB = sqlDb.value;
+      process.env.AZSessionCookie = SessionCookie.value;
       if (sqlPort && sqlPort.value) process.env.AZSQLPort = sqlPort.value;
 
       log('Loaded secrets:', {
@@ -139,7 +99,8 @@ async function loadSecrets(retries = 5) {
         TWILIO_AUTH_TOKEN: !!tok.value,
         AZSQLServer: process.env.AZSQLServer,
         AZSQLDB: process.env.AZSQLDB,
-        AZSQLPort: process.env.AZSQLPort
+        AZSQLPort: process.env.AZSQLPort,
+        AZSessionCookie: process.env.AZSessionCookie
       });
       return;
     } catch (err) {
@@ -155,9 +116,9 @@ let twClient;
 async function initTwilio() {
   if (!twClient) {
     log('Initializing Twilio...');
-    const mod    = await import('twilio');
+    const mod = await import('twilio');
     const twRoot = mod.default ?? mod;
-    twClient     = twRoot(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    twClient = twRoot(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     log('Twilio client initialized.');
   }
   return twClient;
@@ -194,103 +155,6 @@ async function verifyEmail(email, { timeoutMs = 8000 } = {}) {
   }
 }
 
-// ---- Routes ----
-app.get('/health', (req, res) => res.send('OK'));
-app.get('/',          (req, res) => res.render('index'));
-app.get('/email-pass',(req, res) => res.render('emailPass'));
-app.get('/nonProfile',(req, res) => res.render('nonProfile'));
-app.post('/submit-basic-info', (req, res) => {
-  res.redirect('/volunteerIn');
-});
-app.post('/submit-advanced-info', async (req, res) => {
-  const { email, password } = req.body;
-  try{
-    const row = await insertEmailPass(email, password);
-    if(!row){
-      return res.status(409).send('Email already registered.');
-    }
-  
-  res.redirect('/volunteerIn');
-}catch(err){
-  res.status(500).send('Registration failed: ' + err.message)
-}
-});
-
-app.get('/volunteerIn', (req, res) => res.render('volunteerIn'));
-
-app.get('/validate-phone', async (req, res) => {
-  try {
-    const raw = (req.query.phone || '').toString();
-    const digits = raw.replace(/\D+/g, '');
-    if (!digits) {
-      return res.status(400).json({ error: 'Phone number required' });
-    }
-    const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
-    const tw = await initTwilio();
-    const lookup = await tw.lookups.v2
-      .phoneNumbers(e164)
-      .fetch({ type: ['carrier'] });
-    const carrierType = lookup?.carrier?.type || '';
-    const smsCapable = carrierType === 'mobile' || carrierType === 'voip';
-    return res.status(200).json({
-      valid: true,
-      normalized: e164,
-      smsCapable,
-      carrierType,
-      validation_errors: ''
-    });
-  } catch (err) {
-    if (err.status === 404) {
-      return res.status(200).json({
-        valid: false,
-        validation_errors: 'Invalid or unrecognized phone number.'
-      });
-    }
-    logError('Twilio Lookup error:', err);
-    return res.status(500).json({ error: 'Lookup failed' });
-  }
-});
-
-app.get('/validate-email', async (req, res) => {
-  const email = (req.query.email || '').toString().trim();
-  if (!email) return res.status(400).json({ valid: false, reason: 'Please enter an email address' });
-  if (email.toLowerCase().endsWith('@jwpub.org')) {
-    return res.json({ result: 'invalid', reason: 'Domain not allowed' });
-  }
-  try {
-    const result = await verifyEmail(email);
-    res.json({ result: result.result, reason: result.reason });
-  } catch (err) {
-    logError('Kickbox verification error:', err);
-    res.status(500).json({ error: 'Verification failed' });
-  }
-});
-
-app.get('/whoami', async (req,res) => {
-  try { const x = await whoAmI(); res.json(x || {}); }
-  catch(e) { res.status(500).json({error: String(e)}) }
-});
-
-app.get('/db-test', async (req, res) => {
-  try {
-    const tsql = "SELECT DB_NAME() AS db, SUSER_SNAME() AS login, USER_NAME() AS dbuser;";
-    const result = await exec(tsql, (r) => {});
-    res.json({ success: true, result });
-   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }})
-
-
-// ---- 404 handler ----
-app.use((req, res, next) => {
-    // Set the HTTP status code to 404
-    res.status(404);
-    
-    // Render the 404 EJS view
-    res.render('404', { url: req.originalUrl });
-});
-
-
 // ---- Server & graceful shutdown ----
 const server = http.createServer(app);
 
@@ -307,15 +171,241 @@ function shutdown(signal) {
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ---- Start after dependencies ready ----
 (async () => {
   try {
     log('Starting loadSecrets...');
     await loadSecrets();
-    log('Secrets loaded.');
 
+    // Register session middleware after secrets are loaded
+    app.use(
+      session({
+        secret: process.env.AZSessionCookie,
+        resave: false,
+        saveUninitialized: false,
+        cookie: { secure: false, httpOnly: true },
+      })
+    );
+
+    // Register all middleware/routes that depend on session
+    const csrfProtection = csurf({ cookie: true });
+
+    app.use((req, res, next) => {
+      res.locals.nonce = crypto.randomBytes(16).toString('base64');
+      next();
+    });
+
+    app.use(
+      helmet.contentSecurityPolicy({
+        useDefaults: true,
+        directives: {
+          "default-src": ["'self'"],
+          "base-uri": ["'self'"],
+          "object-src": ["'none'"],
+          "frame-ancestors": ["'none'"],
+          "script-src": [
+            "'self'",
+            "https://cdn.jsdelivr.net",
+            (req, res) => `'nonce-${res.locals.nonce}'`
+          ],
+          "style-src": [
+            "'self'",
+            "https://cdn.jsdelivr.net",
+            "https://fonts.googleapis.com",
+            (req, res) => `'nonce-${res.locals.nonce}'`
+          ],
+          "img-src": ["'self'", "data:"],
+          "font-src": ["'self'", "https://fonts.gstatic.com"],
+          "connect-src": isProd
+            ? [
+              "'self'",
+              "https:",
+              "https://*.azurewebsites.net",
+              "https://albanyjwparking.org",
+              "https://api.kickbox.com"
+            ]
+            : [
+              "'self'",
+              "http://localhost:3000",
+              "https://api.kickbox.com",
+              "https://cdn.jsdelivr.net"
+            ],
+        },
+      })
+    );
+
+    app.use('/api', dbRoutes);
+
+    // ---- Routes ----
+    app.get('/health', (req, res) => res.send('OK'));
+    app.get('/', csrfProtection, (req, res) => { res.render('index', { csrfToken: req.csrfToken() }) });
+    app.get("/email-pass", csrfProtection, (req, res) => { res.render("emailPass", { csrfToken: req.csrfToken() }) });
+    app.get("/nonProfile", csrfProtection, (req, res) => { res.render("nonProfile", { csrfToken: req.csrfToken() }) });
+    app.get("/congregationInfo", csrfProtection, (req, res) => { res.render("congregationInfo", { csrfToken: req.csrfToken() }) });
+    app.post('/submit-basic-info', (req, res) => { res.redirect('/volunteerIn') });
+
+    app.post('/submit-advanced-info', async (req, res) => {
+      const { email, password } = req.body;
+      try {
+        const row = await insertEmailPass(email, password);
+        if (!row) {
+          return res.status(409).send('Email already registered.');
+        }
+        req.session.userId = row.id;
+        res.redirect('/volunteerIn');
+      } catch (err) {
+        res.status(500).send('Registration failed: ' + err.message);
+      }
+    });
+
+    app.get("/volunteerIn", csrfProtection, (req, res) => { res.render("volunteerIn", { csrfToken: req.csrfToken() }) });
+
+    app.post('/submit-phoneVer', async (req, res) => {
+      console.log("Received body:", req.body);
+      console.log("Session userId:", req.session.userId);
+      // Validate session
+      const userId = req.session.userId;
+      if (!userId) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Session expired or user not registered.",
+          });
+      }
+
+      // Destructure request body
+      const { phone, firstName, lastName, suffix, SMSCapable } = req.body;
+
+      // Normalize phone number
+      const normalizedPhone = phone.replace(/\D+/g, "");
+
+      try {
+        // Check for duplicates
+        const exists = await namePhoneExists(
+          firstName,
+          lastName,
+          normalizedPhone,
+          suffix,
+          SMSCapable
+        );
+        if (exists) {
+          return res.json({
+            success: false,
+            message: "Duplicate record exists",
+            exists: true,
+          });
+        }
+
+        // Update DB record
+        const row = await insertNameAndPhone(
+          userId,
+          firstName,
+          lastName,
+          normalizedPhone,
+          suffix,
+          SMSCapable
+        );
+        if (!row) {
+          return res
+            .status(409)
+            .json({
+              success: false,
+              message: "Update failed. Record may not exist.",
+            });
+        }
+
+        // Success response
+        return res.json({
+          success: true,
+          message: "Info updated successfully",
+          exists: false,
+        });
+      } catch (err) {
+        console.error("Error updating volunteer info", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Server error: " + err.message });
+      }
+    });
+
+    app.get('/validate-phone', async (req, res) => {
+      try {
+        const raw = (req.query.phone || '').toString();
+        const digits = raw.replace(/\D+/g, '');
+        if (!digits) {
+          return res.status(400).json({ error: 'Phone number required' });
+        }
+        const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+        const tw = await initTwilio();
+        const lookup = await tw.lookups.v2
+          .phoneNumbers(e164)
+          .fetch({ type: ['carrier'] });
+        const carrierType = lookup?.carrier?.type || '';
+        const SMSCapable = carrierType === 'mobile' || carrierType === 'voip';
+        return res.status(200).json({
+          valid: true,
+          normalized: e164,
+          SMSCapable,
+          carrierType,
+          validation_errors: ''
+        });
+      } catch (err) {
+        if (err.status === 404) {
+          return res.status(200).json({
+            valid: false,
+            validation_errors: 'Invalid or unrecognized phone number.'
+          });
+        }
+        logError('Twilio Lookup error:', err);
+        return res.status(500).json({ error: 'Lookup failed' });
+      }
+    });
+
+    app.get('/validate-email', async (req, res) => {
+      const email = (req.query.email || '').toString().trim();
+      if (!email) return res.status(400).json({ valid: false, reason: 'Please enter an email address' });
+      if (email.toLowerCase().endsWith('@jwpub.org')) {
+        return res.json({ result: 'invalid', reason: 'Domain not allowed' });
+      }
+      try {
+        const result = await verifyEmail(email);
+        res.json({ result: result.result, reason: result.reason });
+      } catch (err) {
+        logError('Kickbox verification error:', err);
+        res.status(500).json({ error: 'Verification failed' });
+      }
+    });
+
+    app.get('/whoami', async (req, res) => {
+      try { const x = await whoAmI(); res.json(x || {}); }
+      catch (e) { res.status(500).json({ error: String(e) }) }
+    });
+
+    app.get('/db-test', async (req, res) => {
+      try {
+        const tsql = "SELECT DB_NAME() AS db, SUSER_SNAME() AS login, USER_NAME() AS dbuser;";
+        const result = await exec(tsql, (r) => { });
+        res.json({ success: true, result });
+      } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+      }
+    });
+
+    // ---- 404 handler ----
+    app.use((req, res, next) => {
+      res.status(404);
+      res.render('404', { url: req.originalUrl });
+    });
+
+    // ---- Server startup ----
+    server.listen(PORT, HOST, () => {
+      log(`✅ Server running on http://${HOST}:${PORT}`);
+    });
+
+    // ...rest of your async startup (Twilio, SQL pool, etc.)...
     log('Starting initTwilio...');
     await initTwilio();
     log('Twilio initialized.');
@@ -333,12 +423,7 @@ process.on('SIGINT',  () => shutdown('SIGINT'));
       logError('Server error:', err);
     });
 
-    log(`Starting server on http://${HOST}:${PORT}...`);
-    server.listen(PORT, HOST, () => {
-      log(`✅ Server running on http://${HOST}:${PORT}`);
-    });
   } catch (err) {
     logError('❌ Failed to start server:', err);
     process.exit(1);
-  }
-})();
+  }})();

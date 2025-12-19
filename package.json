@@ -17,9 +17,13 @@
     "bind": "^0.1.6",
     "body-parser": "^2.2.1",
     "build": "^0.1.4",
+    "cookie": "^1.1.1",
+    "cookie-parser": "^1.4.7",
+    "csurf": "^1.11.0",
     "docker": "^1.0.0",
     "ejs": "^3.1.10",
     "express": "^5.2.1",
+    "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "imask": "^7.6.1",
     "jq": "^1.7.2",
@@ -29,6 +33,7 @@
     "twilio": "^5.10.7"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "nodemon": "^3.1.11",
     "vite": "^7.2.7"
   }

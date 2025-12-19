@@ -25,6 +25,7 @@
             </header>
             <div class="card-body">
               <form action="/submit-advanced-info" method="POST" id="account-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <!-- Email Fields -->
                 <div class="mb-3">
                   <label for="email" class="form-label">Email:<span class="asterix">*</span></label>

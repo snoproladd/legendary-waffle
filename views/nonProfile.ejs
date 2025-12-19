@@ -25,12 +25,13 @@
             </header>
             <div class="card-body">
               <form action="/submit-basic-info" method="POST" id="account-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <!-- Name Fields -->
                 <div class="mb-3">
-                  <label for="first-name" class="form-label">First Name:<span class="asterix">*</span></label>
-                  <input type="text" id="first-name" name="first-name" class="form-control" placeholder="Enter your first name" required>
-                  <label for="last-name" class="form-label">Last Name:<span class="asterix">*</span></label>
-                  <input type="text" id="last-name" name="last-name" class="form-control" placeholder="Enter your last name" required>
+                  <label for="firstName" class="form-label">First Name:<span class="asterix">*</span></label>
+                  <input type="text" id="firstName" name="firstName" class="form-control" placeholder="Enter your first name" required>
+                  <label for="lastName" class="form-label">Last Name:<span class="asterix">*</span></label>
+                  <input type="text" id="lastName" name="lastName" class="form-control" placeholder="Enter your last name" required>
                   <label for="suffix" class="form-label">Suffix (if applicable)</label>
                   <input type="text" id="suffix" name="suffix" class="form-control" placeholder="Enter your suffix">
                 </div>

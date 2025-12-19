@@ -26,25 +26,25 @@
             <form action="/submit" method="post" id="account-form" novalidate>
               <!-- Name Fields -->
               <div class="mb-3">
-                <label for="first-name" class="form-label">
+                <label for="firstName" class="form-label">
                   First Name: <span class="asterix">*</span>
                 </label>
                 <input
                   type="text"
-                  id="first-name"
-                  name="first-name"
+                  id="firstName"
+                  name="firstName"
                   class="form-control"
                   autocomplete="given-name"
                   required
                 />
 
-                <label for="last-name" class="form-label mt-3">
+                <label for="lastName" class="form-label mt-3">
                   Last Name: <span class="asterix">*</span>
                 </label>
                 <input
                   type="text"
-                  id="last-name"
-                  name="last-name"
+                  id="lastName"
+                  name="lastName"
                   class="form-control"
                   autocomplete="family-name"
                   required
@@ -94,52 +94,52 @@
                 <div id="phone-status" class="status mt-2" role="status" aria-live="polite"></div>
                 <div id="confirm-phone-status" class="status mt-2" role="status" aria-live="polite"></div>
 
-                <!-- SMS-capable radio group -->
+                <!-- SMSCapable radio group -->
                 <fieldset
                   class="border-0 p-0 mt-3"
-                  aria-describedby="sms-capable-help"
-                  aria-labelledby="sms-capable-legend"
+                  aria-describedby="SMSCapable-help"
+                  aria-labelledby="SMSCapable-legend"
                 >
-                  <legend id="sms-capable-legend" class="form-label mb-2">
+                  <legend id="SMSCapable-legend" class="form-label mb-2">
                     Can you receive text messages at this number?
                     <span class="asterix">*</span>
                   </legend>
 
-                  <div id="sms-capable-help" class="form-text mb-2">
+                  <div id="SMSCapable-help" class="form-text mb-2">
                     Select <strong>Yes</strong> if your device can receive text messages.
                   </div>
 
                   <div
                     class="d-flex flex-wrap align-items-center gap-4"
                     role="radiogroup"
-                    aria-labelledby="sms-capable-legend"
-                    aria-describedby="sms-capable-help"
+                    aria-labelledby="SMSCapable-legend"
+                    aria-describedby="SMSCapable-help"
                   >
                     <div class="form-check">
                       <input
                         class="form-check-input"
                         type="radio"
-                        name="SMS-capable"
-                        id="SMS-capable-yes"
+                        name="SMSCapable"
+                        id="SMSCapable-yes"
                         value="yes"
                         required
                       />
-                      <label class="form-check-label" for="SMS-capable-yes">Yes</label>
+                      <label class="form-check-label" for="SMSCapable-yes">Yes</label>
                     </div>
 
                     <div class="form-check">
                       <input
                         class="form-check-input"
                         type="radio"
-                        name="SMS-capable"
-                        id="SMS-capable-no"
+                        name="SMSCapable"
+                        id="SMSCapable-no"
                         value="no"
                       />
-                      <label class="form-check-label" for="SMS-capable-no">No</label>
+                      <label class="form-check-label" for="SMSCapable-no">No</label>
                     </div>
                   </div>
 
-                  <div class="invalid-feedback d-block" id="sms-capable-error" aria-live="polite" hidden>
+                  <div class="invalid-feedback d-block" id="SMSCapable-error" aria-live="polite" hidden>
                     Please select Yes or No.
                   </div>
                 </fieldset>
@@ -165,7 +165,7 @@
   </main>
 
   <!-- Scripts -->
-  <script src="/js/phoneVer.js" defer></script>
+  <!--<script src="/js/phoneVer.js" defer></script>-->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 </body>
 
