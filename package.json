@@ -2,8 +2,21 @@
   "name": "parking",
   "version": "1.0.0",
   "description": "Express app with Kickbox email validation and Azure Key Vault integration",
-  "main": "index.js",
+  "homepage": "https://github.com/snoproladd/legendary-waffle#readme",
+  "bugs": {
+    "url": "https://github.com/snoproladd/legendary-waffle/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/snoproladd/legendary-waffle.git"
+  },
+  "license": "ISC",
+  "author": "",
   "type": "module",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "concurrently -n client,server -c \"magenta,cyan\" \"vite\" \"nodemon index.js\"",
@@ -19,8 +32,9 @@
     "build": "^0.1.4",
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
-    "csurf": "^1.11.0",
-    "docker": "^1.0.0",
+    "csurf": "^1.2.2",
+    "docker": "^0.2.14",
+    "dotenv": "^17.2.3",
     "ejs": "^3.1.10",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
@@ -30,7 +44,8 @@
     "kickbox": "^2.0.4",
     "mssql": "^12.2.0",
     "path-to-regexp": "^8.3.0",
-    "twilio": "^5.10.7"
+    "twilio": "^5.10.7",
+    "uuid": "9.0.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
