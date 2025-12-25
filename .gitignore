@@ -61,6 +61,7 @@ public/js/*.js.map
 
 # scripts
 *.sh
+*.ps1
 
 
 

@@ -201,13 +201,18 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
     app.use('/api', dbRoutes);
 
-    // ✅ Restored Routes
     app.get('/health', (req, res) => res.send('OK'));
     app.get('/', csrfProtection, (req, res) => res.render('index', { csrfToken: req.csrfToken() }));
     app.get('/email-pass', csrfProtection, (req, res) => res.render('emailPass', { csrfToken: req.csrfToken() }));
     app.get('/nonProfile', csrfProtection, (req, res) => res.render('nonProfile', { csrfToken: req.csrfToken() }));
     app.get('/congregationInfo', csrfProtection, (req, res) => res.render('congregationInfo', { csrfToken: req.csrfToken() }));
-    app.post('/submit-basic-info', (req, res) => res.redirect('/volunteerIn'));
+    app.post('/submit-basic-info', csrfProtection, (req, res) => {
+      res.render('volunteerIn', {
+        disableNameFields: true,
+        csrfToken: req.csrfToken()
+      });
+    });
+
 
     app.post('/submit-advanced-info', async (req, res) => {
       const { email, password } = req.body;
@@ -230,11 +235,17 @@ process.on('SIGINT', () => shutdown('SIGINT'));
       const { phone, firstName, lastName, suffix, SMSCapable } = req.body;
       const normalizedPhone = phone.replace(/\D+/g, "");
 
+      // Normlize names
+
+      const normalizedFirstName = firstName.trim().toLowerCase();
+      const normalizedLastName = lastName.trim().toLowerCase();
+      const normalizedSuffix = suffix ? suffix.trim().toLowerCase() : '';
+
       try {
-        const exists = await namePhoneExists(firstName, lastName, normalizedPhone, suffix, SMSCapable);
+        const exists = await namePhoneExists(normalizedFirstName, normalizedLastName, normalizedPhone, normalizedSuffix, SMSCapable);
         if (exists) return res.json({ success: false, message: "Duplicate record exists", exists: true });
 
-        const row = await insertNameAndPhone(userId, firstName, lastName, normalizedPhone, suffix, SMSCapable);
+        const row = await insertNameAndPhone(userId, normalizedFirstName, normalizedLastName, normalizedPhone, normalizedSuffix, SMSCapable);
         if (!row) return res.status(409).json({ success: false, message: "Update failed. Record may not exist." });
 
         return res.json({ success: true, message: "Info updated successfully", exists: false });
