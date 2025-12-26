@@ -28,7 +28,7 @@ jspm_packages/
 
 # Environment files
 .env
-.env.*
+
 
 # OS-specific files
 .DS_Store
@@ -62,6 +62,9 @@ public/js/*.js.map
 # scripts
 *.sh
 *.ps1
+
+#Local variable
+set_local_env.js
 
 
 

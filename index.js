@@ -1,5 +1,5 @@
 
-import dotenv from 'dotenv';
+import { getConfig } from './src/config/azureConfig.js';
 import http from 'http';
 import express from 'express';
 import path from 'path';
@@ -12,9 +12,10 @@ import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import csurf from 'csurf';
+import { getSqlPool } from './src/config/azureConfig.js';
+const config = await getConfig();
 
-// ✅ Load .env for local development
-dotenv.config();
+
 
 function log(...args) {
   console.log(`[${new Date().toISOString()}] [index.js]`, ...args);
@@ -33,8 +34,8 @@ if (typeof globalThis.crypto === 'undefined') {
 }
 
 // ---- Basics ----
-const isProd = process.env.NODE_ENV === 'production';
-const PORT = Number(process.env.PORT ?? (isProd ? 80 : 3000));
+const isProd = config.NODE_ENV === 'production';
+const PORT = Number(config.PORT ?? (isProd ? 80 : 3000));
 const HOST = '0.0.0.0';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,6 +56,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -64,43 +68,7 @@ const vaultUrl = `https://${vaultName}.vault.azure.net`;
 const credential = new DefaultAzureCredential();
 const secretClient = new SecretClient(vaultUrl, credential);
 
-const secretNames = [
-  { name: 'kickboxBrowser', env: 'KICKBOX_API_KEY' },
-  { name: 'TwilioSID', env: 'TWILIO_ACCOUNT_SID' },
-  { name: 'TwilioAuthToken', env: 'TWILIO_AUTH_TOKEN' },
-  { name: 'AZSQLServer', env: 'AZSQLServer' },
-  { name: 'AZSQLDB', env: 'AZSQLDB' },
-  { name: 'AZSQLPort', env: 'AZSQLPort' },
-  { name: 'CookieSession', env: 'AZSessionCookie' }
-];
 
-async function loadSecrets(retries = 5) {
-  let attempt = 0;
-  while (true) {
-    try {
-      log('Loading secrets from Key Vault...');
-      const secrets = await Promise.all(
-        secretNames.map(s =>
-          secretClient.getSecret(s.name).catch(() => ({ value: undefined }))
-        )
-      );
-      secrets.forEach((secret, i) => {
-        if (secret.value) process.env[secretNames[i].env] = secret.value;
-      });
-      log('Loaded secrets:', {
-        AZSQLServer: process.env.AZSQLServer,
-        AZSQLDB: process.env.AZSQLDB,
-        AZSQLPort: process.env.AZSQLPort
-      });
-      return;
-    } catch (err) {
-      attempt++;
-      logError(`Failed to load secrets (attempt ${attempt}): ${err.message}`);
-      if (attempt >= retries) throw err;
-      await new Promise(res => setTimeout(res, Math.min(2000 * attempt, 10000)));
-    }
-  }
-}
 
 let twClient;
 async function initTwilio() {
@@ -108,7 +76,7 @@ async function initTwilio() {
     log('Initializing Twilio...');
     const mod = await import('twilio');
     const twRoot = mod.default ?? mod;
-    twClient = twRoot(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    twClient = twRoot(config.TWILIO_ACCOUNT_SID, config.TWILIO_AUTH_TOKEN);
     log('Twilio client initialized.');
   }
   return twClient;
@@ -116,7 +84,7 @@ async function initTwilio() {
 
 // ✅ Kickbox email verification helper
 async function verifyEmail(email, { timeoutMs = 8000 } = {}) {
-  if (!process.env.KICKBOX_API_KEY) {
+  if (!config.KICKBOX_API_KEY) {
     throw new Error('KICKBOX_API_KEY missing');
   }
   const controller = new AbortController();
@@ -124,7 +92,7 @@ async function verifyEmail(email, { timeoutMs = 8000 } = {}) {
   try {
     const url = new URL('https://api.kickbox.com/v2/verify');
     url.searchParams.set('email', email);
-    url.searchParams.set('apikey', process.env.KICKBOX_API_KEY);
+    url.searchParams.set('apikey', config.KICKBOX_API_KEY);
     const resp = await fetch(url.toString(), {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
@@ -149,6 +117,7 @@ async function verifyEmail(email, { timeoutMs = 8000 } = {}) {
 const server = http.createServer(app);
 function shutdown(signal) {
   log(`Received ${signal}. Closing server...`);
+stopDbUpdate();
   server.close(err => {
     if (err) {
       logError('Error during server close:', err);
@@ -164,16 +133,14 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ---- Startup sequence ----
 (async () => {
   try {
-    log('Starting loadSecrets...');
-    await loadSecrets();
 
     // ✅ Register session middleware after secrets are loaded
     app.use(session({
-      secret: process.env.AZSessionCookie || 'fallback-secret',
+      secret: config.sessionSecret || 'fallback-secret',
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: false, httpOnly: true }
-    }));
+      cookie: { secure: false, httpOnly: true, naxAge: 5 * 60 * 1000 //5 minutes in milliseconds
+  }}));
 
     const csrfProtection = csurf({ cookie: true });
     app.use((req, res, next) => {
@@ -196,21 +163,51 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
     // ✅ Import routes and DB helpers AFTER secrets are ready
     const dbRoutes = (await import('./routes/volunteers.js')).default;
-    const { exec, insertEmailPass, insertNameAndPhone, namePhoneExists } = await import('./lib/dbSync.js');
-    const { getSqlPool } = await import('./lib/sql.js');
+    const { exec, insertEmailPass, insertNameAndPhone, namePhoneExists, loadVolunteerCache } = await import('./lib/dbSync.js');
+    await getSqlPool();
+
+    // Update volunteerCache every 10sec
+app.use((req, res, next) => {
+  if (!req.session.userId) {
+       stopDbUpdate();
+  }
+  next()});    
+let dbUpdateInterval = null;
+
+function startDbUpdate() {
+  if (!dbUpdateInterval) {
+    dbUpdateInterval = setInterval(async () => {
+      try {
+        const cache = await loadVolunteerCache();
+        app.locals.volunteerCache = cache;
+        log('Volunteer cache refreshed.');
+      } catch (err) {
+        logError('Failed to refresh volunteer cache:', err);
+      }
+    }, 10_000);
+    log('DB update interval started.');
+  }
+}
+
+function stopDbUpdate() {
+  if (dbUpdateInterval) {
+    clearInterval(dbUpdateInterval);
+    dbUpdateInterval = null;
+    log('DB update interval stopped.');
+  }
+}
+
+
 
     app.use('/api', dbRoutes);
 
     app.get('/health', (req, res) => res.send('OK'));
     app.get('/', csrfProtection, (req, res) => res.render('index', { csrfToken: req.csrfToken() }));
-    app.get('/email-pass', csrfProtection, (req, res) => res.render('emailPass', { csrfToken: req.csrfToken() }));
-    app.get('/nonProfile', csrfProtection, (req, res) => res.render('nonProfile', { csrfToken: req.csrfToken() }));
+    app.get('/email-pass', csrfProtection, (req, res) => {loadVolunteerCache(), startDbUpdate(), res.render('emailPass', { csrfToken: req.csrfToken() })});
+    app.get('/nonProfile', csrfProtection, (req, res) => {loadVolunteerCache(), startDbUpdate(), res.render('nonProfile', { csrfToken: req.csrfToken() })});
     app.get('/congregationInfo', csrfProtection, (req, res) => res.render('congregationInfo', { csrfToken: req.csrfToken() }));
     app.post('/submit-basic-info', csrfProtection, (req, res) => {
-      res.render('volunteerIn', {
-        disableNameFields: true,
-        csrfToken: req.csrfToken()
-      });
+      res.redirect('/volunteerIn?disable=true');
     });
 
 
@@ -226,14 +223,21 @@ process.on('SIGINT', () => shutdown('SIGINT'));
       }
     });
 
-    app.get('/volunteerIn', csrfProtection, (req, res) => res.render('volunteerIn', { csrfToken: req.csrfToken() }));
+    app.get('/volunteerIn', csrfProtection, (req, res) => {
+      const disableNameFields = req.query.disable === 'true';
+      loadVolunteerCache();
+      startDbUpdate();
+      res.render('volunteerIn', {
+        disableNameFields, csrfToken: req.csrfToken()
+      });
+    });
 
     app.post('/submit-phoneVer', async (req, res) => {
       const userId = req.session.userId;
       if (!userId) return res.status(400).json({ success: false, message: "Session expired or user not registered." });
 
       const { phone, firstName, lastName, suffix, SMSCapable } = req.body;
-      const normalizedPhone = phone.replace(/\D+/g, "");
+      const normalizedPhone = phone ? phone.replace(/\D+/g, "") : null;
 
       // Normlize names
 

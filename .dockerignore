@@ -32,3 +32,5 @@ public/js/*.js.map
 *.txt
 
 *.sh
+
+set_local_env.js

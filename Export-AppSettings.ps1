@@ -4,7 +4,7 @@
 # -------------------------------
 $resourceGroup = "DefaultResourceGroup-EUS"
 $appName = "AlbanyJWParking"
-$outputFile = "C:\Git Repos\legendary-waffle\.env"  # Change path as needed
+$outputFile = ".\.env"  # Change path as needed
 
 # -------------------------------
 # Ensure Az module is installed
